@@ -1,711 +1,315 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta charset="utf-8" />
-<link rel="manifest" href="manifest.json" />
-<meta name="theme-color" content="#0ea5e9" />
-<title>متابعة الطلاب</title>
-<style> .install-wrap{display:flex;gap:8px;align-items:center;padding:8px 16px;background:#0b1220;color:#e2e8f0;border-bottom:1px solid rgba(148,163,184,.25)} #installBtn{background:#22c55e;color:#fff;border:0;padding:8px 12px;border-radius:10px;cursor:pointer} #installBtn:disabled{opacity:.6;cursor:default} </style>
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>متابعة الطلاب - تربية بدنية</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Font Awesome for Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts (Cairo) -->
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <meta name="theme-color" content="#0ea5e9" />
     
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
     <script>
         tailwind.config = {
             darkMode: 'class',
             theme: {
                 extend: {
                     colors: {
-                        primary: '#107C41', // Excel Green
-                        dark: {
-                            bg: '#111827',
-                            card: '#1f2937',
-                            border: '#374151',
-                            text: '#f3f4f6',
-                            muted: '#9ca3af'
-                        }
+                        primary: '#107C41',
+                        dark: { bg: '#111827', card: '#1f2937', border: '#374151', text: '#f3f4f6' }
                     },
-                    fontFamily: {
-                        cairo: ['Cairo', 'sans-serif'],
-                    }
+                    fontFamily: { cairo: ['Cairo', 'sans-serif'] }
                 }
             }
         }
     </script>
 
     <style>
-        body {
-            font-family: 'Cairo', sans-serif;
-        }
+        body { font-family: 'Cairo', sans-serif; }
+        .status-circle { transition: all 0.2s; cursor: pointer; }
+        .status-circle:hover { transform: scale(1.15); z-index: 10; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .student-card { transition: transform 0.2s; }
+        .student-card:hover { transform: translateY(-2px); }
         
-        .status-circle {
-            transition: all 0.2s;
-            cursor: pointer;
-        }
-        .status-circle:hover {
-            transform: scale(1.15);
-            box-shadow: 0 0 10px rgba(0,0,0,0.15);
-            z-index: 10;
-        }
-        /* Hide scrollbar for clean look in modal */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        
-        /* Card Hover Effect */
-        .student-card {
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .student-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        }
-
-        /* Status Manager Styles */
-        .color-swatch {
-            width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;
-        }
-        .color-swatch.selected { border-color: #333; transform: scale(1.1); }
-        .icon-option {
-            width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
-            border-radius: 8px; cursor: pointer; border: 1px solid #ddd; transition: all 0.2s;
-        }
+        /* Selectors Styling */
+        .color-swatch { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
+        .color-swatch.selected { border-color: #333; transform: scale(1.2); box-shadow: 0 0 5px rgba(0,0,0,0.3); }
+        .icon-option { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; cursor: pointer; border: 1px solid #ddd; transition: all 0.2s; }
         .icon-option:hover { background-color: #f3f4f6; }
         .icon-option.selected { background-color: #107C41; color: white; border-color: #107C41; }
 
-        /* --- PROFESSIONAL A4 PRINT STYLES (FINAL & FIXED) --- */
-        @media print {
-            @page {
-                size: A4;
-                margin: 1.5cm 1cm;
-            }
-
-            body {
-                background: white;
-                margin: 0;
-                padding: 0;
-                font-family: 'Cairo', sans-serif;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-                width: 100%;
-                height: 100%;
-            }
-
-            /* Hide UI Elements */
-            body > *:not(#print-area) {
-                display: none !important;
-            }
-            
-            /* Print Area Setup */
-            #print-area {
-                display: block !important;
-                position: relative;
-                width: 100%;
-                height: auto;
-                visibility: visible !important;
-                background: white;
-                color: black;
-                direction: rtl;
-                font-size: 12px;
-                line-height: 1.4;
-                overflow: hidden; /* Prevent spillover */
-            }
-
-            /* --- Report Components Styling --- */
-            .rpt-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: flex-start;
-                border-bottom: 2px solid #000;
-                padding-bottom: 15px;
-                margin-bottom: 20px;
-                width: 100%;
-            }
-            .rpt-header-col { width: 30%; text-align: center; }
-            .rpt-header-right { text-align: right; }
-            .rpt-header-left { text-align: left; }
-            
-            .rpt-title-main { font-size: 16px; font-weight: bold; margin-bottom: 2px; }
-            .rpt-title-sub { font-size: 12px; font-weight: normal; color: #333; margin-bottom: 2px; }
-            
-            .rpt-doc-title {
-                text-align: center;
-                font-size: 20px;
-                font-weight: 800;
-                margin: 20px 0;
-                text-decoration: underline;
-                text-underline-offset: 5px;
-                color: #000;
-            }
-
-            .rpt-info-box {
-                border: 1px solid #000;
-                border-radius: 4px;
-                padding: 10px;
-                margin-bottom: 20px;
-                display: flex;
-                justify-content: space-between;
-                background-color: #f9f9f9 !important;
-                width: 100%;
-                box-sizing: border-box;
-            }
-            .rpt-info-item { display: flex; flex-direction: column; padding: 0 10px; }
-            .rpt-info-label { font-size: 10px; color: #555; font-weight: bold; }
-            .rpt-info-val { font-size: 14px; font-weight: bold; color: #000; }
-
-            .rpt-stats-grid {
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 10px;
-                margin-bottom: 20px;
-            }
-            .rpt-stat-card {
-                border: 1px solid #000;
-                padding: 8px;
-                text-align: center;
-                border-radius: 4px;
-            }
-            .rpt-stat-num { font-size: 18px; font-weight: bold; display: block; }
-            .rpt-stat-txt { font-size: 11px; }
-
-            .rpt-table {
-                width: 100%;
-                border-collapse: collapse;
-                margin-bottom: 20px;
-                font-size: 11px;
-            }
-            .rpt-table th {
-                background-color: #eee !important;
-                color: #000;
-                font-weight: bold;
-                border: 1px solid #000;
-                padding: 8px 4px;
-                text-align: center;
-            }
-            .rpt-table td {
-                border: 1px solid #000;
-                padding: 5px 4px;
-                text-align: center;
-                vertical-align: middle;
-            }
-            .rpt-table tr:nth-child(even) td { background-color: #fcfcfc !important; }
-            .text-right-imp { text-align: right !important; padding-right: 8px !important; }
-
-            .rpt-footer {
-                margin-top: 40px;
-                display: flex;
-                justify-content: space-between;
-                page-break-inside: avoid;
-            }
-            .rpt-sig-box { width: 30%; text-align: center; }
-            .rpt-sig-title { font-weight: bold; margin-bottom: 40px; font-size: 12px; }
-            .rpt-sig-line { border-top: 1px solid #000; width: 80%; margin: 0 auto; }
+        /* Print/PDF Area Styling */
+        #print-area {
+            display: none;
+            background: white;
+            color: black;
+            direction: rtl;
+            font-family: 'Cairo', sans-serif;
+            padding: 20px;
+            width: 100%;
         }
+        .rpt-header { display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 20px; }
+        .rpt-header-col { width: 30%; text-align: center; }
+        .rpt-doc-title { text-align: center; font-size: 20px; font-weight: 800; margin: 20px 0; text-decoration: underline; }
+        .rpt-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
+        .rpt-table th { background-color: #eee; border: 1px solid #000; padding: 8px; text-align: center; }
+        .rpt-table td { border: 1px solid #000; padding: 6px; text-align: center; }
+        .rpt-info-box { border: 1px solid #000; padding: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; background-color: #f9f9f9; }
+        .rpt-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+        .rpt-stat-card { border: 1px solid #000; padding: 8px; text-align: center; border-radius: 4px; }
+        .rpt-footer { margin-top: 40px; display: flex; justify-content: space-between; }
+        .rpt-sig-box { width: 30%; text-align: center; }
+        .rpt-sig-line { border-top: 1px solid #000; width: 80%; margin: 40px auto 0; }
     </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen p-3 md:p-6 transition-colors duration-300">
-<div class="install-wrap" id="installBar" style="display:none">
-  <span>تثبيت التطبيق على جهازك</span>
-  <button id="installBtn">تثبيت</button>
-</div>
 
-
-    <!-- Screen Content (Hidden when printing) -->
-    <div class="max-w-[1400px] mx-auto no-print">
-        
-        <!-- Header & Title -->
-        <div class="flex flex-col md:flex-row justify-between items-center mb-6 bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border-t-4 border-primary transition-colors duration-300">
+    <div class="max-w-[1400px] mx-auto">
+        <div class="flex flex-col md:flex-row justify-between items-center mb-6 bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border-t-4 border-primary">
             <div class="flex items-center gap-4">
                 <div class="bg-green-50 dark:bg-green-900/30 p-3 rounded-xl">
                     <i class="fas fa-users-rectangle text-primary text-3xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-2xl font-bold text-gray-800 dark:text-white leading-tight">سجل متابعة الطلاب</h1>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 font-semibold mt-1">نظام البطاقات الذكي</p>
+                    <h1 class="text-2xl font-bold text-gray-800 dark:text-white">سجل متابعة الطلاب</h1>
+                    <p class="text-xs text-gray-500 font-semibold mt-1">نظام البطاقات الذكي</p>
                 </div>
             </div>
             <div class="mt-4 md:mt-0 flex flex-wrap justify-center gap-2">
-                <button onclick="addNewStudent()" class="bg-primary hover:bg-green-800 text-white px-4 py-2 rounded-xl shadow hover:shadow-md transition-all flex items-center gap-2 font-bold text-sm">
+                <button onclick="addNewStudent()" class="bg-primary hover:bg-green-800 text-white px-4 py-2 rounded-xl shadow font-bold text-sm">
                     <i class="fas fa-plus"></i> إضافة طالب
                 </button>
-                <button onclick="generateClassReport()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl shadow hover:shadow-md transition-all flex items-center gap-2 font-bold text-sm">
-                    <i class="fas fa-file-alt"></i> تقرير شامل
+                <button onclick="generateClassReport()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl shadow font-bold text-sm flex items-center gap-2">
+                    <i class="fas fa-file-pdf"></i> تصدير PDF
                 </button>
-                <button onclick="askToClearData()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl shadow hover:shadow-md transition-all flex items-center gap-2 font-bold text-sm">
+                <button onclick="askToClearData()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl shadow font-bold text-sm">
                     <i class="fas fa-trash"></i> تصفير
                 </button>
-                <button onclick="openSettingsModal()" class="bg-gray-700 hover:bg-gray-800 dark:bg-gray-600 dark:hover:bg-gray-500 text-white px-4 py-2 rounded-xl shadow hover:shadow-md transition-all flex items-center gap-2 font-bold text-sm">
+                <button onclick="openSettingsModal()" class="bg-gray-700 text-white px-4 py-2 rounded-xl shadow">
                     <i class="fas fa-cog"></i>
                 </button>
             </div>
         </div>
 
-        <!-- Statistics Dashboard -->
-        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6 transition-all duration-300" id="stats-container">
-            <!-- Stats will be injected here via JS -->
-        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6" id="stats-container"></div>
 
-        <!-- Search & Filter Bar -->
         <div class="mb-6 flex flex-col md:flex-row gap-3">
-            <!-- Search -->
             <div class="relative flex-grow">
-                <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <i class="fas fa-search text-gray-400 dark:text-gray-500"></i>
-                </div>
-                <input type="text" 
-                    oninput="handleSearch(this.value)"
-                    class="block w-full p-3 pr-10 text-sm text-gray-900 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-primary focus:border-primary shadow-sm transition-all dark:bg-gray-800 dark:border-gray-700 dark:placeholder-gray-400 dark:text-white" 
-                    placeholder="بحث عن طالب بالاسم...">
+                <input type="text" oninput="handleSearch(this.value)" class="block w-full p-3 pr-10 text-sm border rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:text-white" placeholder="بحث عن طالب...">
+                <i class="fas fa-search absolute top-3.5 right-3 text-gray-400"></i>
             </div>
-            
-            <!-- Grade Filter -->
             <div class="w-full md:w-1/4">
-                <div class="relative">
-                    <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                        <i class="fas fa-filter text-gray-400 dark:text-gray-500"></i>
-                    </div>
-                    <select id="grade-filter" onchange="handleGradeFilter(this.value)" 
-                        class="block w-full p-3 pr-10 text-sm text-gray-900 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-primary focus:border-primary shadow-sm transition-all dark:bg-gray-800 dark:border-gray-700 dark:text-white cursor-pointer appearance-none">
-                        <option value="all">عرض كل الصفوف</option>
-                        <!-- Options injected via JS -->
-                    </select>
-                    <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                        <i class="fas fa-chevron-down text-gray-400 text-xs"></i>
-                    </div>
-                </div>
+                <select id="grade-filter" onchange="handleGradeFilter(this.value)" class="block w-full p-3 text-sm border rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:text-white">
+                    <option value="all">عرض كل الصفوف</option>
+                </select>
             </div>
         </div>
 
-        <!-- Students Cards Grid -->
-        <div id="students-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 pb-20">
-            <!-- Cards will be injected here -->
-        </div>
+        <div id="students-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 pb-20"></div>
         
-        <!-- Empty State Message -->
-        <div id="empty-state" class="hidden text-center py-20 text-gray-400 dark:text-gray-500">
-            <div class="bg-gray-50 dark:bg-gray-800 inline-block p-6 rounded-full mb-4 shadow-inner">
-                <i class="fas fa-address-card text-5xl text-gray-300 dark:text-gray-600"></i>
-            </div>
-            <h3 class="text-xl font-bold text-gray-600 dark:text-gray-300 mb-2">قائمة الطلاب فارغة</h3>
-            <p class="text-sm mb-6">لم يتم العثور على طلاب مطابقين للبحث أو الفلتر.</p>
-            <button onclick="addNewStudent()" class="text-primary font-bold hover:underline text-sm flex items-center justify-center gap-2 mx-auto">
-                <i class="fas fa-plus-circle"></i> إضافة طالب جديد
-            </button>
+        <div id="empty-state" class="hidden text-center py-20 text-gray-400">
+            <i class="fas fa-address-card text-5xl mb-4"></i>
+            <p>لا يوجد طلاب مطابقين.</p>
         </div>
-
     </div>
 
-    <!-- Print Area (Visible ONLY in Print) -->
     <div id="print-area"></div>
 
-    <!-- Status Selection Modal -->
-    <div id="status-modal" class="fixed inset-0 bg-gray-900/60 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity no-print">
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl transform transition-all scale-100 overflow-hidden border border-gray-100 dark:border-gray-700">
+    <div id="status-modal" class="fixed inset-0 bg-gray-900/60 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-3xl overflow-hidden">
             <div class="p-4 border-b dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-700/50">
-                <h3 class="font-bold text-lg text-gray-800 dark:text-white flex items-center gap-2">
-                    <span class="bg-green-100 dark:bg-green-900/40 text-primary dark:text-green-400 p-1.5 rounded-lg"><i class="fas fa-fingerprint"></i></span>
-                    <span>رصد الحالة:</span>
-                    <span class="text-gray-500 dark:text-gray-400 text-sm mx-1 font-mono" id="modal-date-display"></span>
-                    <span class="bg-primary text-white text-xs px-2 py-0.5 rounded-full">الخانة <span id="modal-slot-number"></span></span>
-                </h3>
-                <button onclick="closeModal()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-colors">
-                    <i class="fas fa-times text-lg"></i>
-                </button>
+                <h3 class="font-bold text-lg dark:text-white">رصد الحالة: <span id="modal-student-name" class="text-primary"></span></h3>
+                <button onclick="closeModal()"><i class="fas fa-times text-gray-400 hover:text-red-500 text-xl"></i></button>
             </div>
-             <div class="p-3 text-center bg-yellow-50 dark:bg-gray-700/30 border-b border-yellow-100 dark:border-gray-700">
-                <span class="text-sm font-bold text-gray-700 dark:text-gray-300">الطالب: <span id="modal-student-name" class="text-primary dark:text-green-400 text-base"></span></span>
-            </div>
-            
-            <!-- NEW: Current Status Action Panel -->
-            <div id="modal-current-status-section" class="hidden p-3 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-800 flex justify-between items-center">
-                <div class="flex items-center gap-2">
-                    <span class="text-sm font-bold text-blue-800 dark:text-blue-300">الحالة الحالية:</span>
-                    <div id="modal-current-status-display" class="flex items-center gap-2"></div>
-                </div>
+            <div class="p-6 grid grid-cols-2 sm:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto" id="status-options-grid"></div>
+        </div>
+    </div>
+
+    <div id="history-modal" class="fixed inset-0 bg-gray-900/60 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div class="p-4 border-b dark:border-gray-700 flex justify-between items-center">
+                <h3 class="font-bold text-lg dark:text-white">سجل الحضور: <span id="history-student-name" class="text-blue-600"></span></h3>
                 <div class="flex gap-2">
-                    <button onclick="decrementCurrentStatus()" id="btn-decrement" class="hidden text-white bg-amber-500 hover:bg-amber-600 px-3 py-1 rounded-lg text-xs font-bold transition-colors shadow-sm flex items-center gap-1">
-                        <i class="fas fa-minus-circle"></i> إنقاص
-                    </button>
-                    <button onclick="clearCurrentStatus()" class="text-white bg-red-500 hover:bg-red-600 px-3 py-1 rounded-lg text-xs font-bold transition-colors shadow-sm flex items-center gap-1">
-                        <i class="fas fa-trash-alt"></i> مسح
-                    </button>
+                    <button onclick="generateIndividualReport(currentHistoryStudentId)" class="bg-blue-600 text-white px-3 py-1 rounded text-sm"><i class="fas fa-file-pdf"></i> PDF</button>
+                    <button onclick="closeHistoryModal()"><i class="fas fa-times text-gray-400"></i></button>
                 </div>
             </div>
-
-            <div class="p-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto custom-scrollbar" id="status-options-grid">
-                <!-- Status buttons generated by JS -->
-            </div>
-            
-            <div class="p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex justify-end">
-                <button onclick="closeModal()" class="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-6 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm">إلغاء</button>
+            <div class="p-6 overflow-y-auto">
+                <table class="w-full text-sm text-right"><tbody id="history-table-body"></tbody></table>
+                <div id="history-empty" class="hidden text-center py-10 text-gray-400">لا يوجد سجلات.</div>
             </div>
         </div>
     </div>
 
-    <!-- Student History Modal -->
-    <div id="history-modal" class="fixed inset-0 bg-gray-900/60 hidden z-[55] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity no-print">
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl transform transition-all scale-100 overflow-hidden flex flex-col max-h-[85vh]">
-            <div class="p-4 border-b dark:border-gray-700 bg-blue-50 dark:bg-gray-700/50 flex justify-between items-center shrink-0">
-                <h3 class="font-bold text-lg text-gray-800 dark:text-white flex items-center gap-2">
-                    <i class="fas fa-history text-blue-600 dark:text-blue-400"></i>
-                    <span>سجل الحضور الكامل:</span>
-                    <span id="history-student-name" class="text-blue-700 dark:text-blue-300 font-extrabold"></span>
-                </h3>
-                <div class="flex gap-2">
-                    <button onclick="generateIndividualReport(currentHistoryStudentId)" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm transition-transform active:scale-95">
-                        <i class="fas fa-print"></i> <span>طباعة</span>
-                    </button>
-                    <button onclick="closeHistoryModal()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-colors">
-                        <i class="fas fa-times text-lg"></i>
-                    </button>
-                </div>
+    <div id="settings-modal" class="fixed inset-0 bg-gray-900/60 hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
+            <div class="flex justify-between mb-4">
+                <h3 class="font-bold text-lg dark:text-white">الإعدادات</h3>
+                <button onclick="closeSettingsModal()"><i class="fas fa-times"></i></button>
             </div>
-            
-            <div class="p-6 overflow-y-auto custom-scrollbar">
-                <table class="w-full text-sm text-right">
-                    <thead class="bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-400 uppercase text-xs font-bold tracking-wider">
-                        <tr>
-                            <th class="px-4 py-3 rounded-r-lg">التاريخ</th>
-                            <th class="px-4 py-3">الخانة</th>
-                            <th class="px-4 py-3 rounded-l-lg text-center">الحالة</th>
-                        </tr>
-                    </thead>
-                    <tbody id="history-table-body" class="divide-y divide-gray-200 dark:divide-gray-700">
-                        <!-- History rows -->
-                    </tbody>
-                </table>
-                <div id="history-empty" class="hidden text-center py-12 text-gray-400">
-                    <i class="fas fa-folder-open text-4xl mb-2 opacity-50"></i>
-                    <p>لا يوجد سجلات سابقة لهذا الطالب.</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Edit Student Modal (NEW) -->
-    <div id="edit-student-modal" class="fixed inset-0 bg-gray-900/60 hidden z-[70] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity no-print">
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md transform transition-all scale-100 overflow-hidden">
-            <div class="p-5 border-b dark:border-gray-700 bg-blue-50 dark:bg-gray-700 flex justify-between items-center">
-                <h3 class="font-bold text-lg text-gray-800 dark:text-white">
-                    <i class="fas fa-user-edit text-blue-600 dark:text-blue-400 ml-2"></i>
-                    تعديل بيانات الطالب
-                </h3>
-                <button onclick="closeEditStudentModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            
-            <div class="p-6 flex flex-col gap-4">
-                <div>
-                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">اسم الطالب</label>
-                    <input type="text" id="edit-student-name" class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
-                </div>
-                <div>
-                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">الصف</label>
-                    <input type="text" id="edit-student-grade" class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
-                </div>
-                <input type="hidden" id="edit-student-id">
-                
-                <div class="flex justify-end gap-2 mt-2">
-                    <button onclick="closeEditStudentModal()" class="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors">إلغاء</button>
-                    <button onclick="saveStudentDetails()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-bold text-sm shadow-md transition-colors">حفظ التغييرات</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Settings Modal -->
-    <div id="settings-modal" class="fixed inset-0 bg-gray-900/60 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity no-print">
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md transform transition-all scale-100 overflow-hidden flex flex-col max-h-[90vh]">
-            <div class="p-4 border-b dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 shrink-0">
-                <h3 class="font-bold text-lg text-gray-800 dark:text-white flex items-center gap-2">
-                    <i class="fas fa-cog text-gray-600 dark:text-gray-300"></i>
-                    <span>الإعدادات</span>
-                </h3>
-                <button onclick="closeSettingsModal()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-400 hover:text-gray-600 dark:text-gray-300 transition-colors">
-                    <i class="fas fa-times text-lg"></i>
-                </button>
-            </div>
-            
-            <div class="p-6 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
-                
-                <!-- Status Management Button -->
-                <div class="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-xl border border-amber-100 dark:border-amber-800 flex justify-between items-center">
+            <div class="space-y-4">
+                <div onclick="openStatusManager()" class="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-xl border border-amber-100 dark:border-amber-800 flex justify-between items-center cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/30 transition">
                     <div class="flex items-center gap-3">
-                        <div class="bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 w-10 h-10 rounded-full flex items-center justify-center">
-                            <i class="fas fa-list-check text-xl"></i>
-                        </div>
+                        <div class="bg-amber-100 dark:bg-amber-900/40 text-amber-600 w-10 h-10 rounded-full flex items-center justify-center"><i class="fas fa-list-check"></i></div>
                         <div>
                             <h4 class="font-bold text-gray-800 dark:text-white text-sm">إدارة الحالات</h4>
-                            <p class="text-xs text-gray-500 dark:text-gray-300">إضافة وتعديل حالات الطلاب</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-300">إضافة أو حذف أو تعديل الحالات</p>
                         </div>
                     </div>
-                    <button onclick="openStatusManager()" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-colors">
-                        تعديل
-                    </button>
+                    <i class="fas fa-chevron-left text-gray-400"></i>
                 </div>
 
-                <!-- Dark Mode Toggle -->
-                <div class="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl border border-gray-100 dark:border-gray-600 flex justify-between items-center">
-                    <div class="flex items-center gap-3">
-                        <div class="bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 w-10 h-10 rounded-full flex items-center justify-center">
-                            <i class="fas fa-moon text-xl"></i>
-                        </div>
-                        <div>
-                            <h4 class="font-bold text-gray-800 dark:text-white text-sm">الوضع الداكن</h4>
-                            <p class="text-xs text-gray-500 dark:text-gray-300">تغيير مظهر التطبيق</p>
-                        </div>
-                    </div>
-                    <button onclick="toggleTheme()" id="theme-toggle-btn" class="relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none bg-gray-200 dark:bg-purple-600">
-                        <span class="sr-only">Toggle dark mode</span>
-                        <span id="theme-toggle-circle" class="translate-x-1 inline-block w-4 h-4 transform bg-white rounded-full transition-transform duration-200 dark:translate-x-6"></span>
-                    </button>
-                </div>
+                <hr class="dark:border-gray-700">
 
-                <!-- Stats Toggle -->
-                <div class="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl border border-gray-100 dark:border-gray-600 flex justify-between items-center">
-                    <div class="flex items-center gap-3">
-                        <div class="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 w-10 h-10 rounded-full flex items-center justify-center">
-                            <i class="fas fa-chart-bar text-xl"></i>
-                        </div>
-                        <div>
-                            <h4 class="font-bold text-gray-800 dark:text-white text-sm">عرض الإحصائيات</h4>
-                            <p class="text-xs text-gray-500 dark:text-gray-300">إظهار أو إخفاء شريط الإحصائيات</p>
-                        </div>
-                    </div>
-                    <button onclick="toggleStats()" id="stats-toggle-btn" class="relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none bg-indigo-600">
-                        <span class="sr-only">Toggle stats</span>
-                        <span id="stats-toggle-circle" class="translate-x-6 inline-block w-4 h-4 transform bg-white rounded-full transition-transform duration-200"></span>
-                    </button>
-                </div>
-
-                 <!-- Import Names (TXT) Section -->
-                 <div class="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl border border-orange-100 dark:border-orange-800 text-center">
-                    <i class="fas fa-file-alt text-3xl text-orange-600 dark:text-orange-400 mb-2"></i>
-                    <h4 class="font-bold text-orange-800 dark:text-orange-300 mb-1">استيراد أسماء (نصي)</h4>
-                    <p class="text-xs text-orange-600 dark:text-orange-300/70 mb-3">نسخ ولصق الأسماء من ملف نصي</p>
-                    <button onclick="document.getElementById('import-txt-file').click()" class="w-full bg-orange-600 hover:bg-orange-700 dark:bg-orange-700 dark:hover:bg-orange-600 text-white py-2 rounded-lg shadow transition-colors font-semibold text-sm">
-                        <i class="fas fa-list-ol ml-2"></i> اختيار ملف نصي
-                    </button>
-                    <input type="file" id="import-txt-file" accept=".txt" class="hidden" onchange="importNamesFromText(this)">
-                </div>
-
-                <!-- Export Section -->
-                <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800 text-center">
-                    <i class="fas fa-file-export text-3xl text-blue-600 dark:text-blue-400 mb-2"></i>
-                    <h4 class="font-bold text-blue-800 dark:text-blue-300 mb-1">تصدير البيانات (JSON)</h4>
-                    <p class="text-xs text-blue-600 dark:text-blue-300/70 mb-3">حفظ نسخة كاملة من البيانات</p>
-                    <button onclick="exportData()" class="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white py-2 rounded-lg shadow transition-colors font-semibold text-sm">
-                        <i class="fas fa-download ml-2"></i> تحميل النسخة الاحتياطية
-                    </button>
-                </div>
-
-                <!-- Import Section -->
-                <div class="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl border border-green-100 dark:border-green-800 text-center">
-                    <i class="fas fa-file-import text-3xl text-green-600 dark:text-green-400 mb-2"></i>
-                    <h4 class="font-bold text-green-800 dark:text-green-300 mb-1">استيراد بيانات (JSON)</h4>
-                    <p class="text-xs text-green-600 dark:text-green-300/70 mb-3">استرجاع نسخة سابقة كاملة</p>
-                    <button onclick="document.getElementById('import-file').click()" class="w-full bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 text-white py-2 rounded-lg shadow transition-colors font-semibold text-sm">
-                        <i class="fas fa-upload ml-2"></i> رفع ملف JSON
-                    </button>
-                    <input type="file" id="import-file" accept=".json" class="hidden" onchange="importData(this)">
+                <button onclick="exportData()" class="w-full bg-blue-100 text-blue-700 py-3 rounded-lg font-bold">تصدير نسخة احتياطية (JSON)</button>
+                <button onclick="document.getElementById('import-file').click()" class="w-full bg-green-100 text-green-700 py-3 rounded-lg font-bold">استيراد نسخة احتياطية</button>
+                <input type="file" id="import-file" accept=".json" class="hidden" onchange="importData(this)">
+                <button onclick="document.getElementById('import-txt-file').click()" class="w-full bg-orange-100 text-orange-700 py-3 rounded-lg font-bold">استيراد أسماء من ملف نصي</button>
+                <input type="file" id="import-txt-file" accept=".txt" class="hidden" onchange="importNamesFromText(this)">
+                <div class="flex justify-between items-center pt-4 border-t dark:border-gray-700">
+                    <span class="dark:text-white">الوضع الداكن</span>
+                    <button onclick="toggleTheme()" class="bg-gray-200 dark:bg-purple-600 h-6 w-11 rounded-full relative"><span class="w-4 h-4 bg-white rounded-full absolute top-1 transition-all" id="theme-toggle-circle" style="left:4px"></span></button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Status Manager Modal -->
-    <div id="status-manager-modal" class="fixed inset-0 bg-gray-900/60 hidden z-[60] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity no-print">
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg transform transition-all scale-100 overflow-hidden flex flex-col max-h-[90vh]">
+    <div id="status-manager-modal" class="fixed inset-0 bg-gray-900/60 hidden z-[60] flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
             <div class="p-4 border-b dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 shrink-0">
-                <h3 class="font-bold text-lg text-gray-800 dark:text-white flex items-center gap-2">
-                    <i class="fas fa-list-check text-amber-600"></i>
-                    <span>إدارة الحالات</span>
-                </h3>
-                <button onclick="closeStatusManager()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-400 transition-colors">
-                    <i class="fas fa-times"></i>
-                </button>
+                <h3 class="font-bold text-lg dark:text-white"><i class="fas fa-list-check text-amber-600 ml-2"></i>إدارة الحالات</h3>
+                <button onclick="closeStatusManager()"><i class="fas fa-times"></i></button>
             </div>
             
-            <div class="p-6 flex flex-col gap-6 overflow-y-auto custom-scrollbar">
-                <!-- Add New Status Form -->
-                <div class="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
-                    <h4 class="font-bold text-sm mb-3 text-gray-700 dark:text-gray-300">إضافة حالة جديدة</h4>
-                    <div class="flex flex-col gap-3">
-                        <input type="text" id="new-status-name" class="w-full p-2 text-sm border rounded dark:bg-gray-800 dark:border-gray-600 dark:text-white" placeholder="اسم الحالة (مثال: ممتاز)">
+            <div class="p-6 overflow-y-auto custom-scrollbar flex-grow">
+                <div class="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-xl border border-gray-200 dark:border-gray-700 mb-6">
+                    <h4 class="font-bold text-sm mb-3 dark:text-white">إضافة حالة جديدة</h4>
+                    <div class="space-y-3">
+                        <input type="text" id="new-status-name" class="w-full p-2 border rounded dark:bg-gray-800 dark:border-gray-600 dark:text-white" placeholder="اسم الحالة (مثال: نسيان زي)">
                         
-                        <!-- Color Picker -->
                         <div>
                             <p class="text-xs text-gray-500 mb-2">اختر لون:</p>
-                            <div class="flex gap-2 flex-wrap" id="color-picker-container">
-                                <!-- Colors injected by JS -->
-                            </div>
+                            <div class="flex gap-2 flex-wrap" id="color-picker-container"></div>
                             <input type="hidden" id="selected-color-key">
                         </div>
 
-                        <!-- Icon Picker -->
                         <div>
                             <p class="text-xs text-gray-500 mb-2">اختر أيقونة:</p>
-                            <div class="grid grid-cols-6 gap-2" id="icon-picker-container">
-                                <!-- Icons injected by JS -->
-                            </div>
+                            <div class="grid grid-cols-6 gap-2" id="icon-picker-container"></div>
                             <input type="hidden" id="selected-icon-class">
                         </div>
 
-                        <div class="flex items-center gap-2">
-                            <input type="checkbox" id="new-status-stats" class="w-4 h-4 text-primary rounded" checked>
-                            <label for="new-status-stats" class="text-xs text-gray-600 dark:text-gray-400">إضافة للإحصائيات</label>
-                        </div>
+                        <label class="flex items-center gap-2 text-sm dark:text-white cursor-pointer">
+                            <input type="checkbox" id="new-status-stats" checked class="w-4 h-4 text-primary">
+                            تظهر في شريط الإحصائيات
+                        </label>
 
-                        <button onclick="addNewStatusType()" class="bg-primary hover:bg-green-700 text-white w-full py-2 rounded font-bold text-sm mt-2">إضافة</button>
+                        <button onclick="addNewStatusType()" class="bg-primary hover:bg-green-700 text-white w-full py-2 rounded font-bold text-sm">إضافة</button>
                     </div>
                 </div>
 
-                <!-- Existing Statuses List -->
-                <div>
-                    <h4 class="font-bold text-sm mb-3 text-gray-700 dark:text-gray-300 border-b pb-2 dark:border-gray-700">الحالات الحالية</h4>
-                    <div id="status-list-container" class="flex flex-col gap-2">
-                        <!-- Items injected by JS -->
-                    </div>
-                </div>
+                <h4 class="font-bold text-sm mb-3 dark:text-white border-b pb-2 dark:border-gray-700">الحالات الحالية</h4>
+                <div id="status-list-container" class="space-y-2"></div>
             </div>
         </div>
     </div>
 
-    <!-- Grade Selection Modal for Import -->
-    <div id="grade-selection-modal" class="fixed inset-0 bg-gray-900/60 hidden z-[70] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity no-print">
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md transform transition-all scale-100 overflow-hidden">
-            <div class="p-5 border-b dark:border-gray-700 bg-orange-50 dark:bg-gray-700 flex justify-between items-center">
-                <h3 class="font-bold text-lg text-gray-800 dark:text-white">
-                    <i class="fas fa-users-cog text-orange-600 dark:text-orange-400 ml-2"></i>
-                    تحديد الصف
-                </h3>
-            </div>
-            
-            <div class="p-6">
-                <div class="mb-4">
-                    <p class="text-sm text-gray-600 dark:text-gray-300 mb-2">تم العثور على <span id="imported-count" class="font-bold text-orange-600">0</span> اسم.</p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">يرجى كتابة اسم الصف أو الفصل الذي سيتم إضافة هؤلاء الطلاب إليه:</p>
-                </div>
-                
-                <input type="text" id="import-grade-input" 
-                    class="block w-full p-3 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-orange-500 dark:focus:border-orange-500 mb-4" 
-                    placeholder="مثال: ثاني ثانوي (أ)">
-
-                <div class="flex justify-end gap-3">
-                    <button onclick="closeGradeModal()" class="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors">إلغاء</button>
-                    <button onclick="confirmImportNames()" class="bg-orange-600 hover:bg-orange-700 text-white px-6 py-2 rounded-lg font-semibold text-sm transition-colors shadow-md">
-                        <i class="fas fa-save ml-1"></i> حفظ واستيراد
-                    </button>
-                </div>
+    <div id="edit-student-modal" class="fixed inset-0 bg-gray-900/60 hidden z-[70] flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
+            <h3 class="font-bold text-lg mb-4 dark:text-white">تعديل بيانات الطالب</h3>
+            <input type="text" id="edit-student-name" class="w-full p-2 border rounded mb-3 dark:bg-gray-700 dark:text-white">
+            <input type="text" id="edit-student-grade" class="w-full p-2 border rounded mb-3 dark:bg-gray-700 dark:text-white">
+            <input type="hidden" id="edit-student-id">
+            <div class="flex justify-end gap-2">
+                <button onclick="closeEditStudentModal()" class="bg-gray-200 px-4 py-2 rounded">إلغاء</button>
+                <button onclick="saveStudentDetails()" class="bg-blue-600 text-white px-4 py-2 rounded">حفظ</button>
             </div>
         </div>
     </div>
 
-    <!-- General Alert/Confirm Modal (Custom) -->
-    <div id="custom-dialog-modal" class="fixed inset-0 bg-gray-900/70 hidden z-[60] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity no-print">
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm transform transition-all scale-100 overflow-hidden border-t-4 border-transparent" id="custom-dialog-header">
-            <div class="p-6 text-center">
-                <i id="custom-dialog-icon" class="fas text-4xl mb-4 block transition-colors"></i>
-                <h3 id="custom-dialog-title" class="font-bold text-xl text-gray-800 dark:text-white mb-2"></h3>
-                <p id="custom-dialog-message" class="text-gray-600 dark:text-gray-300 text-sm leading-relaxed mb-6"></p>
-                
-                <div id="custom-dialog-actions" class="flex justify-center gap-3">
-                    <!-- Buttons will be injected here -->
-                </div>
+    <div id="grade-selection-modal" class="fixed inset-0 bg-gray-900/60 hidden z-[70] flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
+            <h3 class="font-bold text-lg mb-2 dark:text-white">تحديد الصف</h3>
+            <p class="mb-4 text-sm text-gray-500">تم العثور على <span id="imported-count" class="font-bold"></span> اسم.</p>
+            <input type="text" id="import-grade-input" class="w-full p-3 border rounded mb-4 dark:bg-gray-700 dark:text-white" placeholder="مثال: ثاني ثانوي (أ)">
+            <div class="flex justify-end gap-2">
+                <button onclick="closeGradeModal()" class="bg-gray-200 px-4 py-2 rounded">إلغاء</button>
+                <button onclick="confirmImportNames()" class="bg-orange-600 text-white px-4 py-2 rounded">حفظ واستيراد</button>
             </div>
+        </div>
+    </div>
+
+    <div id="custom-dialog-modal" class="fixed inset-0 bg-gray-900/70 hidden z-[80] flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center">
+            <i id="custom-dialog-icon" class="text-4xl mb-4 block"></i>
+            <h3 id="custom-dialog-title" class="font-bold text-xl mb-2 dark:text-white"></h3>
+            <p id="custom-dialog-message" class="text-gray-600 dark:text-gray-300 mb-6"></p>
+            <div id="custom-dialog-actions" class="flex justify-center gap-3"></div>
         </div>
     </div>
 
     <script>
-        // --- Data & Configuration ---
-        
+        // --- Data & Config ---
         const DEFAULT_STATUS_TYPES = {
-            'none': { label: 'لم يرصد', icon: 'fa-circle', color: 'text-gray-300 dark:text-gray-600', bg: 'bg-gray-100 dark:bg-gray-700', stats: false },
-            'present_kit': { label: 'حاضر (زي رياضي)', icon: 'fa-tshirt', color: 'text-green-600 dark:text-green-400', bg: 'bg-green-100 dark:bg-green-900/40', stats: true },
-            'present_no_kit': { label: 'حاضر (بدون زي)', icon: 'fa-user-tie', color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/40', stats: true },
-            'participating': { label: 'مشارك', icon: 'fa-star', color: 'text-yellow-500 dark:text-yellow-400', bg: 'bg-yellow-50 dark:bg-yellow-900/30', stats: true },
-            'absent': { label: 'غائب', icon: 'fa-user-xmark', color: 'text-red-600 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/40', stats: true },
-            'late': { label: 'متأخر', icon: 'fa-clock', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/40', stats: true },
-            'excused': { label: 'مستأذن', icon: 'fa-file-signature', color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/40', stats: true },
-            'sick': { label: 'مريض', icon: 'fa-truck-medical', color: 'text-pink-600 dark:text-pink-400', bg: 'bg-pink-100 dark:bg-pink-900/40', stats: true },
-            'escape': { label: 'هروب', icon: 'fa-person-running', color: 'text-red-800 dark:text-red-500', bg: 'bg-red-200 dark:bg-red-900/60', stats: true },
-            'disruptive': { label: 'مشاغب', icon: 'fa-bolt', color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-100 dark:bg-purple-900/40', stats: true },
-            'apathetic': { label: 'لا مبالاة', icon: 'fa-face-rolling-eyes', color: 'text-gray-500 dark:text-gray-400', bg: 'bg-gray-200 dark:bg-gray-600', stats: true },
-            'not_participating': { label: 'غير مشارك', icon: 'fa-ban', color: 'text-gray-700 dark:text-gray-300', bg: 'bg-gray-300 dark:bg-gray-600', stats: true },
+            'none': { label: 'لم يرصد', icon: 'fa-circle', color: 'text-gray-300', bg: 'bg-gray-100', stats: false },
+            'present_kit': { label: 'حاضر (زي)', icon: 'fa-tshirt', color: 'text-green-600', bg: 'bg-green-100', stats: true },
+            'present_no_kit': { label: 'حاضر (لا زي)', icon: 'fa-user-tie', color: 'text-orange-600', bg: 'bg-orange-100', stats: true },
+            'participating': { label: 'مشارك', icon: 'fa-star', color: 'text-yellow-500', bg: 'bg-yellow-50', stats: true },
+            'absent': { label: 'غائب', icon: 'fa-user-xmark', color: 'text-red-600', bg: 'bg-red-100', stats: true },
+            'excused': { label: 'مستأذن', icon: 'fa-file-signature', color: 'text-blue-600', bg: 'bg-blue-100', stats: true },
+            'sick': { label: 'مريض', icon: 'fa-truck-medical', color: 'text-pink-600', bg: 'bg-pink-100', stats: true },
+            'disruptive': { label: 'مشاغب', icon: 'fa-bolt', color: 'text-purple-600', bg: 'bg-purple-100', stats: true }
         };
 
-        // Predefined Colors for the Manager
+        // Predefined Colors for Manager
         const STATUS_COLORS = {
-            'green': { color: 'text-green-600 dark:text-green-400', bg: 'bg-green-100 dark:bg-green-900/40', display: '#16a34a' },
-            'red': { color: 'text-red-600 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/40', display: '#dc2626' },
-            'blue': { color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/40', display: '#2563eb' },
-            'yellow': { color: 'text-yellow-500 dark:text-yellow-400', bg: 'bg-yellow-50 dark:bg-yellow-900/30', display: '#eab308' },
-            'orange': { color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/40', display: '#ea580c' },
-            'purple': { color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-100 dark:bg-purple-900/40', display: '#9333ea' },
-            'pink': { color: 'text-pink-600 dark:text-pink-400', bg: 'bg-pink-100 dark:bg-pink-900/40', display: '#db2777' },
-            'gray': { color: 'text-gray-600 dark:text-gray-400', bg: 'bg-gray-200 dark:bg-gray-700', display: '#4b5563' },
-            'indigo': { color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-100 dark:bg-indigo-900/40', display: '#4f46e5' },
-            'teal': { color: 'text-teal-600 dark:text-teal-400', bg: 'bg-teal-100 dark:bg-teal-900/40', display: '#0d9488' }
+            'green': { color: 'text-green-600', bg: 'bg-green-100', display: '#16a34a' },
+            'red': { color: 'text-red-600', bg: 'bg-red-100', display: '#dc2626' },
+            'blue': { color: 'text-blue-600', bg: 'bg-blue-100', display: '#2563eb' },
+            'yellow': { color: 'text-yellow-500', bg: 'bg-yellow-50', display: '#eab308' },
+            'orange': { color: 'text-orange-600', bg: 'bg-orange-100', display: '#ea580c' },
+            'purple': { color: 'text-purple-600', bg: 'bg-purple-100', display: '#9333ea' },
+            'pink': { color: 'text-pink-600', bg: 'bg-pink-100', display: '#db2777' },
+            'gray': { color: 'text-gray-600', bg: 'bg-gray-200', display: '#4b5563' },
+            'indigo': { color: 'text-indigo-600', bg: 'bg-indigo-100', display: '#4f46e5' },
+            'teal': { color: 'text-teal-600', bg: 'bg-teal-100', display: '#0d9488' },
+            'black': { color: 'text-gray-800', bg: 'bg-gray-300', display: '#000000' }
         };
 
-        const STATUS_ICONS = ['fa-circle', 'fa-check', 'fa-times', 'fa-star', 'fa-user', 'fa-user-clock', 'fa-heart', 'fa-thumbs-up', 'fa-thumbs-down', 'fa-exclamation', 'fa-question', 'fa-trophy', 'fa-medal', 'fa-bolt', 'fa-ban', 'fa-running', 'fa-football-ball', 'fa-basketball-ball'];
+        const STATUS_ICONS = [
+            'fa-circle', 'fa-check', 'fa-times', 'fa-star', 'fa-user', 'fa-user-clock', 
+            'fa-heart', 'fa-thumbs-up', 'fa-thumbs-down', 'fa-exclamation', 'fa-question', 
+            'fa-trophy', 'fa-medal', 'fa-bolt', 'fa-ban', 'fa-running', 'fa-football-ball', 
+            'fa-basketball-ball', 'fa-stopwatch', 'fa-shoe-prints', 'fa-bullhorn', 'fa-clipboard'
+        ];
 
         let statusTypes = JSON.parse(localStorage.getItem('pe_status_types')) || DEFAULT_STATUS_TYPES;
-
-        let rawData = JSON.parse(localStorage.getItem('pe_students')) || [];
+        let students = JSON.parse(localStorage.getItem('pe_students')) || [];
         
-        let students = rawData.map(s => {
-            // Migration for object-based attendance log
-            if (s.attendance_log) {
-                // Ensure values are objects { status, count }
-                for (const key in s.attendance_log) {
-                    if (typeof s.attendance_log[key] === 'string') {
-                        s.attendance_log[key] = { status: s.attendance_log[key], count: 1 };
-                    }
+        students = students.map(s => {
+            if(!s.attendance_log) s.attendance_log = {};
+            if(!s.notes) s.notes = '';
+            for (const key in s.attendance_log) {
+                if (typeof s.attendance_log[key] === 'string') {
+                    s.attendance_log[key] = { status: s.attendance_log[key], count: 1 };
                 }
-            } else if (Array.isArray(s.statuses)) {
-                return {
-                    id: s.id,
-                    name: s.name,
-                    grade: s.grade,
-                    attendance_log: s.attendance_log || {}, 
-                    notes: s.notes || ''
-                };
             }
-            return s.attendance_log ? s : {
-                id: s.id || Date.now(),
-                name: s.name || '',
-                grade: s.grade || '',
-                attendance_log: {},
-                notes: s.notes || ''
-            };
+            return s;
         });
-        
-        if (students.length === 0) students = [];
 
-        let currentEditingId = null;
-        let currentEditingSlot = null; 
-        let currentSearchTerm = '';
-        let currentFilterGrade = 'all'; 
+        let currentEditingId = null, currentEditingSlot = null;
+        let currentSearchTerm = '', currentFilterGrade = 'all';
         let currentHistoryStudentId = null;
         let isDarkMode = localStorage.getItem('pe_dark_mode') === 'true';
-        let showStats = localStorage.getItem('pe_show_stats') !== 'false';
         let pendingImportNames = [];
-        
+
         function init() {
             applyTheme();
-            applyStatsVisibility();
-            populateGradeFilter(); 
-            renderTable(); // This now renders cards
+            populateGradeFilter();
+            renderTable();
             renderStats();
             renderModalOptions();
         }
@@ -715,394 +319,224 @@
             return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
         }
 
-        // --- Theme Logic ---
-        function applyTheme() {
-            if (isDarkMode) {
-                document.documentElement.classList.add('dark');
-            } else {
-                document.documentElement.classList.remove('dark');
-            }
-            updateToggleUI('theme-toggle-btn', 'theme-toggle-circle', isDarkMode, 'bg-purple-600');
-        }
+        function exportHTMLToPDF(htmlContent, fileName) {
+            const printArea = document.getElementById('print-area');
+            printArea.innerHTML = htmlContent;
+            printArea.style.display = 'block';
 
-        function toggleTheme() {
-            isDarkMode = !isDarkMode;
-            localStorage.setItem('pe_dark_mode', isDarkMode);
-            applyTheme();
-        }
-
-        function applyStatsVisibility() {
-            const container = document.getElementById('stats-container');
-            if (showStats) {
-                container.classList.remove('hidden');
-                renderStats();
-            } else {
-                container.classList.add('hidden');
-            }
-            updateToggleUI('stats-toggle-btn', 'stats-toggle-circle', showStats, 'bg-indigo-600');
-        }
-
-        function toggleStats() {
-            showStats = !showStats;
-            localStorage.setItem('pe_show_stats', showStats);
-            applyStatsVisibility();
-        }
-
-        function updateToggleUI(btnId, circleId, isActive, activeColorClass) {
-            const btn = document.getElementById(btnId);
-            const circle = document.getElementById(circleId);
-            
-            if (btn && circle) {
-                if (isActive) {
-                    btn.classList.add(activeColorClass);
-                    btn.classList.remove('bg-gray-200');
-                    circle.classList.add('translate-x-6');
-                    circle.classList.remove('translate-x-1');
-                } else {
-                    btn.classList.remove(activeColorClass);
-                    btn.classList.add('bg-gray-200');
-                    circle.classList.remove('translate-x-6');
-                    circle.classList.add('translate-x-1');
-                }
-            }
-        }
-
-        function handleSearch(val) {
-            currentSearchTerm = val;
-            renderTable();
-        }
-
-        function handleGradeFilter(val) {
-            currentFilterGrade = val;
-            renderTable();
-        }
-
-        function populateGradeFilter() {
-            const filterEl = document.getElementById('grade-filter');
-            const grades = [...new Set(students.map(s => s.grade).filter(g => g))].sort();
-            
-            filterEl.innerHTML = '<option value="all">عرض كل الصفوف</option>';
-            grades.forEach(g => {
-                const option = document.createElement('option');
-                option.value = g;
-                option.innerText = g;
-                filterEl.appendChild(option);
-            });
-            
-            if (grades.includes(currentFilterGrade)) {
-                filterEl.value = currentFilterGrade;
-            } else {
-                filterEl.value = 'all';
-                currentFilterGrade = 'all';
-            }
-        }
-
-        // --- Status Manager Logic ---
-
-        function openStatusManager() {
-            closeSettingsModal(); // Close settings first
-            
-            // Render existing
-            renderStatusList();
-            
-            // Render pickers
-            renderColorPicker();
-            renderIconPicker();
-            
-            const modal = document.getElementById('status-manager-modal');
-            modal.classList.remove('hidden');
-            setTimeout(() => {
-                modal.classList.remove('opacity-0');
-                modal.firstElementChild.classList.remove('scale-95');
-                modal.firstElementChild.classList.add('scale-100');
-            }, 10);
-        }
-
-        function closeStatusManager() {
-            const modal = document.getElementById('status-manager-modal');
-            modal.classList.add('opacity-0');
-            modal.firstElementChild.classList.add('scale-95');
-            setTimeout(() => {
-                modal.classList.add('hidden');
-                openSettingsModal(); // Re-open settings
-            }, 200);
-        }
-
-        function renderStatusList() {
-            const container = document.getElementById('status-list-container');
-            container.innerHTML = '';
-            
-            Object.entries(statusTypes).forEach(([key, config]) => {
-                if(key === 'none') return; // Skip 'none' from editing list usually
-
-                const div = document.createElement('div');
-                div.className = 'flex items-center justify-between bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700 shadow-sm';
-                div.innerHTML = `
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-full flex items-center justify-center ${config.bg} ${config.color} border border-gray-200">
-                            <i class="fas ${config.icon}"></i>
-                        </div>
-                        <span class="text-sm font-bold dark:text-white">${config.label}</span>
-                        ${config.stats ? '<span class="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded">إحصاء</span>' : ''}
-                    </div>
-                    <button onclick="deleteStatusType('${key}')" class="text-red-500 hover:bg-red-100 p-1 rounded transition-colors" title="حذف">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                `;
-                container.appendChild(div);
-            });
-        }
-
-        function renderColorPicker() {
-            const container = document.getElementById('color-picker-container');
-            container.innerHTML = '';
-            
-            Object.entries(STATUS_COLORS).forEach(([key, val]) => {
-                const swatch = document.createElement('div');
-                swatch.className = 'color-swatch';
-                swatch.style.backgroundColor = val.display;
-                swatch.onclick = () => {
-                    document.querySelectorAll('.color-swatch').forEach(el => el.classList.remove('selected'));
-                    swatch.classList.add('selected');
-                    document.getElementById('selected-color-key').value = key;
-                };
-                container.appendChild(swatch);
-            });
-            // Select first by default
-            if(container.firstChild) container.firstChild.click();
-        }
-
-        function renderIconPicker() {
-            const container = document.getElementById('icon-picker-container');
-            container.innerHTML = '';
-            
-            STATUS_ICONS.forEach(iconClass => {
-                const iconBox = document.createElement('div');
-                iconBox.className = 'icon-option';
-                iconBox.innerHTML = `<i class="fas ${iconClass}"></i>`;
-                iconBox.onclick = () => {
-                    document.querySelectorAll('.icon-option').forEach(el => el.classList.remove('selected'));
-                    iconBox.classList.add('selected');
-                    document.getElementById('selected-icon-class').value = iconClass;
-                };
-                container.appendChild(iconBox);
-            });
-            // Select first
-            if(container.firstChild) container.firstChild.click();
-        }
-
-        function addNewStatusType() {
-            const name = document.getElementById('new-status-name').value.trim();
-            const colorKey = document.getElementById('selected-color-key').value;
-            const iconClass = document.getElementById('selected-icon-class').value;
-            const stats = document.getElementById('new-status-stats').checked;
-
-            if (!name) {
-                alert('الرجاء كتابة اسم الحالة');
-                return;
-            }
-
-            const newKey = 'status_' + Date.now();
-            const colorConfig = STATUS_COLORS[colorKey] || STATUS_COLORS['gray'];
-
-            statusTypes[newKey] = {
-                label: name,
-                icon: iconClass || 'fa-circle',
-                color: colorConfig.color,
-                bg: colorConfig.bg,
-                stats: stats
+            const opt = {
+                margin: [5, 5, 5, 5],
+                filename: fileName + '.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
-            saveStatusTypes();
-            renderStatusList();
+            const activeBtn = document.activeElement;
+            const originalText = activeBtn ? activeBtn.innerHTML : '';
+            if(activeBtn) activeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التصدير...';
+
+            html2pdf().set(opt).from(printArea).save().then(() => {
+                printArea.innerHTML = '';
+                printArea.style.display = 'none';
+                if(activeBtn) activeBtn.innerHTML = originalText;
+                showDialog({ title: 'تم', message: 'تم حفظ ملف PDF بنجاح.', type: 'success' });
+            }).catch(err => {
+                console.error(err);
+                printArea.style.display = 'none';
+                if(activeBtn) activeBtn.innerHTML = originalText;
+                showDialog({ title: 'خطأ', message: 'حدث خطأ أثناء التصدير.', type: 'danger' });
+            });
+        }
+
+        function getReportHeader(title) {
+            const date = new Date().toLocaleDateString('ar-SA');
+            return `
+                <div class="rpt-header">
+                    <div class="rpt-header-col" style="text-align:right">
+                        <div>المملكة العربية السعودية</div>
+                        <div>وزارة التعليم</div>
+                        <div>مدرسة .........................</div>
+                    </div>
+                    <div class="rpt-header-col"><i class="fas fa-running" style="font-size:40px;color:#107C41"></i></div>
+                    <div class="rpt-header-col" style="text-align:left">
+                        <div><b>التاريخ:</b> ${date}</div>
+                    </div>
+                </div>
+                <div class="rpt-doc-title">${title}</div>
+            `;
+        }
+
+        function getReportFooter() {
+            return `
+                <div class="rpt-footer">
+                    <div class="rpt-sig-box"><p>معلم التربية البدنية</p><div class="rpt-sig-line"></div></div>
+                    <div class="rpt-sig-box"><p>وكيل الشؤون الطلابية</p><div class="rpt-sig-line"></div></div>
+                    <div class="rpt-sig-box"><p>مدير المدرسة</p><div class="rpt-sig-line"></div></div>
+                </div>
+            `;
+        }
+
+        function generateClassReport() {
+            if (students.length === 0) return showDialog({ title: 'تنبيه', message: 'لا يوجد بيانات.', type: 'danger' });
+            const gradeName = currentFilterGrade !== 'all' ? currentFilterGrade : 'جميع الصفوف';
+            let html = getReportHeader('كشف متابعة - ' + gradeName);
+            html += `
+                <table class="rpt-table"><thead><tr>
+                    <th width="5%">#</th><th width="35%">الاسم</th><th width="15%">الصف</th><th width="30%">الملخص</th><th width="15%">آخر حالة</th>
+                </tr></thead><tbody>`;
+
+            const filtered = students.filter(s => currentFilterGrade === 'all' || s.grade === currentFilterGrade);
+            if(filtered.length === 0) html += `<tr><td colspan="5">لا توجد بيانات</td></tr>`;
+
+            filtered.forEach((s, i) => {
+                let statsStr = [];
+                const logs = Object.values(s.attendance_log);
+                const counts = {};
+                logs.forEach(v => {
+                    const st = v.status || v; const c = v.count || 1;
+                    if(statusTypes[st]?.stats) counts[st] = (counts[st]||0) + c;
+                });
+                // Sort by importance (status key)
+                Object.keys(counts).forEach(k => {
+                   if(statusTypes[k]) statsStr.push(`${statusTypes[k].label}: ${counts[k]}`);
+                });
+
+                let lastStatus = '-';
+                const logEntries = Object.entries(s.attendance_log).sort((a,b) => b[0].localeCompare(a[0]));
+                if(logEntries.length) {
+                    const k = logEntries[0][1].status || logEntries[0][1];
+                    lastStatus = statusTypes[k]?.label || '-';
+                }
+
+                html += `<tr><td>${i+1}</td><td style="text-align:right;font-weight:bold">${s.name}</td><td>${s.grade}</td><td>${statsStr.join(' | ')}</td><td>${lastStatus}</td></tr>`;
+            });
+            html += `</tbody></table>` + getReportFooter();
+            exportHTMLToPDF(html, `تقرير_${gradeName.replace(/\s/g,'_')}`);
+        }
+
+        function generateIndividualReport(id) {
+            const s = students.find(x => x.id === id);
+            if(!s) return;
+            let html = getReportHeader('سجل الطالب التفصيلي');
+            html += `<div class="rpt-info-box"><div><b>الاسم:</b> ${s.name}</div><div><b>الصف:</b> ${s.grade}</div></div>`;
             
-            // Reset form
-            document.getElementById('new-status-name').value = '';
-            
-            // Re-render app UI to reflect changes immediately
-            renderModalOptions();
-            renderTable();
-            renderStats();
+            const logs = Object.entries(s.attendance_log).sort((a,b) => b[0].localeCompare(a[0]));
+            // Dynamic Stats for Report
+            const counts = {};
+            logs.forEach(([,v]) => {
+                const st = v.status || v; const c = v.count || 1;
+                if(statusTypes[st]) counts[st] = (counts[st]||0) + c;
+            });
+
+            html += `<div class="rpt-stats-grid">`;
+            Object.entries(counts).forEach(([k,v]) => {
+                if(statusTypes[k]) html += `<div class="rpt-stat-card"><b>${v}</b><br>${statusTypes[k].label}</div>`;
+            });
+            html += `</div><table class="rpt-table"><thead><tr><th>التاريخ</th><th>الخانة</th><th>الحالة</th></tr></thead><tbody>`;
+
+            logs.forEach(([k, v]) => {
+                const stKey = v.status || v; const count = v.count || 1;
+                const conf = statusTypes[stKey] || statusTypes['none'];
+                let date = k.split('_slot_')[0];
+                let slot = k.includes('_slot_') ? k.split('_slot_')[1] : '-';
+                html += `<tr><td>${date}</td><td>${slot}</td><td>${conf.label} ${count>1?`(x${count})`:''}</td></tr>`;
+            });
+            html += `</tbody></table>` + getReportFooter();
+            exportHTMLToPDF(html, `سجل_${s.name.replace(/\s/g,'_')}`);
         }
 
-        function deleteStatusType(key) {
-            if(confirm('هل أنت متأكد من حذف هذه الحالة؟')) {
-                delete statusTypes[key];
-                saveStatusTypes();
-                renderStatusList();
-                renderModalOptions();
-                renderTable();
-                renderStats();
-            }
+        function applyTheme() {
+            if(isDarkMode) { document.documentElement.classList.add('dark'); document.getElementById('theme-toggle-circle').style.left = '24px'; }
+            else { document.documentElement.classList.remove('dark'); document.getElementById('theme-toggle-circle').style.left = '4px'; }
         }
+        function toggleTheme() { isDarkMode = !isDarkMode; localStorage.setItem('pe_dark_mode', isDarkMode); applyTheme(); }
 
-        function saveStatusTypes() {
-            localStorage.setItem('pe_status_types', JSON.stringify(statusTypes));
-        }
-
-        // --- Main Render Logic (Cards) ---
+        function saveData() { localStorage.setItem('pe_students', JSON.stringify(students)); }
+        function saveStatusTypes() { localStorage.setItem('pe_status_types', JSON.stringify(statusTypes)); }
 
         function renderTable() {
             const container = document.getElementById('students-container');
             const emptyState = document.getElementById('empty-state');
-            
             container.innerHTML = '';
             
-            const filteredStudents = students.filter(s => {
-                const matchesSearch = s.name.includes(currentSearchTerm);
-                const matchesGrade = currentFilterGrade === 'all' || s.grade === currentFilterGrade;
-                return matchesSearch && matchesGrade;
+            const filtered = students.filter(s => {
+                return s.name.includes(currentSearchTerm) && (currentFilterGrade === 'all' || s.grade === currentFilterGrade);
             });
 
-            if (students.length === 0) {
-                emptyState.classList.remove('hidden');
-                container.classList.add('hidden');
+            if(filtered.length === 0) {
+                container.classList.add('hidden'); emptyState.classList.remove('hidden');
             } else {
-                if (filteredStudents.length === 0) {
-                    emptyState.classList.remove('hidden');
-                    container.classList.add('hidden');
-                    document.querySelector('#empty-state h3').innerText = "لا يوجد طلاب مطابقين";
-                    return; 
-                } else {
-                    emptyState.classList.add('hidden');
-                    container.classList.remove('hidden');
-                }
-
+                container.classList.remove('hidden'); emptyState.classList.add('hidden');
                 const today = getTodayKey();
-
-                filteredStudents.forEach((student) => {
-                    const card = document.createElement('div');
-                    card.className = 'student-card bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col relative group';
+                
+                filtered.forEach(s => {
+                    const div = document.createElement('div');
+                    div.className = 'student-card bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-100 dark:border-gray-700 overflow-hidden';
                     
-                    const avatarLetter = student.name.charAt(0);
-                    const headerHtml = `
-                        <div class="p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 flex justify-between items-start">
-                            <div class="flex items-center gap-3">
-                                <div class="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center text-xl font-bold shadow-sm">
-                                    ${avatarLetter}
-                                </div>
-                                <div class="overflow-hidden">
-                                    <h3 class="font-bold text-gray-800 dark:text-white text-sm truncate" title="${student.name}">${student.name}</h3>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400 truncate">${student.grade}</p>
-                                </div>
-                            </div>
-                            <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onclick="openEditStudentModal(${student.id})" class="text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600 p-2 rounded-lg transition-colors" title="تعديل">
-                                    <i class="fas fa-pen"></i>
-                                </button>
-                                <button onclick="openHistoryModal(${student.id})" class="text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 p-2 rounded-lg transition-colors" title="السجل">
-                                    <i class="fas fa-history"></i>
-                                </button>
-                                <button onclick="askToDeleteStudent(${student.id})" class="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 p-2 rounded-lg transition-colors" title="حذف">
-                                    <i class="fas fa-trash-alt"></i>
-                                </button>
-                            </div>
-                        </div>
-                    `;
-
-                    let circlesHtml = '<div class="p-4 grid grid-cols-5 gap-2">';
+                    let circles = '<div class="p-4 grid grid-cols-5 gap-2">';
                     for(let i=1; i<=10; i++) {
-                        const slotKey = `${today}_slot_${i}`;
-                        const logEntry = student.attendance_log[slotKey];
-                        const statusKey = logEntry ? logEntry.status : 'none';
-                        const count = logEntry ? (logEntry.count || 1) : 1;
+                        const key = `${today}_slot_${i}`;
+                        const entry = s.attendance_log[key];
+                        const stKey = entry ? entry.status : 'none';
+                        const count = entry ? (entry.count || 1) : 1;
+                        const conf = statusTypes[stKey] || statusTypes['none']; // Fallback
                         
-                        // Safety check for dynamic statusTypes
-                        const statusConfig = statusTypes[statusKey] || statusTypes['none'] || DEFAULT_STATUS_TYPES['none'];
-                        
-                        circlesHtml += `
-                            <div class="flex flex-col items-center gap-1 w-full relative">
-                                <div onclick="openStatusModal(${student.id}, ${i})" 
-                                    class="status-circle w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm shadow-sm border-2 border-white dark:border-gray-600 ${statusConfig.color} ${statusConfig.bg} relative group/tooltip"
-                                    title="${statusConfig.label}">
-                                    <i class="fas ${statusConfig.icon}"></i>
-                                    <span class="absolute bottom-full mb-1 bg-gray-800 text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">${statusConfig.label}</span>
-                                    ${count > 1 ? `<span class="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full shadow-sm z-20 ring-2 ring-white dark:ring-gray-800">${count}</span>` : ''}
+                        circles += `
+                            <div class="flex flex-col items-center relative">
+                                <div onclick="openStatusModal(${s.id},${i})" class="status-circle w-10 h-10 rounded-full flex items-center justify-center border-2 border-white dark:border-gray-600 ${conf.bg} ${conf.color}">
+                                    <i class="fas ${conf.icon}"></i>
+                                    ${count > 1 ? `<span class="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center">${count}</span>` : ''}
                                 </div>
-                                <span class="text-[10px] text-gray-400 font-mono">${i}</span>
-                            </div>
-                        `;
+                                <span class="text-[10px] text-gray-400 font-mono mt-1">${i}</span>
+                            </div>`;
                     }
-                    circlesHtml += '</div>';
+                    circles += '</div>';
 
-                    const footerHtml = `
-                        <div class="px-4 pb-4 pt-0">
-                            <div class="relative">
-                                <i class="fas fa-pen absolute right-3 top-3 text-gray-300 text-xs"></i>
-                                <input type="text" value="${student.notes}" 
-                                    onchange="updateStudent(${student.id}, 'notes', this.value)"
-                                    class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-lg py-2 pr-8 pl-3 text-xs text-gray-600 dark:text-gray-300 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-shadow" 
-                                    placeholder="ملاحظات...">
+                    div.innerHTML = `
+                        <div class="p-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 flex justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-bold">${s.name[0]}</div>
+                                <div><h3 class="font-bold text-sm dark:text-white">${s.name}</h3><p class="text-xs text-gray-500">${s.grade}</p></div>
+                            </div>
+                            <div class="flex gap-1">
+                                <button onclick="openEditStudentModal(${s.id})" class="text-gray-400 hover:text-gray-600 p-1"><i class="fas fa-pen"></i></button>
+                                <button onclick="openHistoryModal(${s.id})" class="text-blue-400 hover:text-blue-600 p-1"><i class="fas fa-history"></i></button>
+                                <button onclick="askToDelete(${s.id})" class="text-red-400 hover:text-red-600 p-1"><i class="fas fa-trash"></i></button>
                             </div>
                         </div>
+                        ${circles}
+                        <div class="p-3"><input type="text" value="${s.notes}" onchange="updateNote(${s.id},this.value)" class="w-full bg-gray-50 dark:bg-gray-900 border rounded p-2 text-xs" placeholder="ملاحظات..."></div>
                     `;
-
-                    card.innerHTML = headerHtml + circlesHtml + footerHtml;
-                    container.appendChild(card);
+                    container.appendChild(div);
                 });
             }
-            saveData();
         }
 
         function renderStats() {
             const container = document.getElementById('stats-container');
-            if (!showStats) return;
             container.innerHTML = '';
-
             const counts = {};
-            let totalEntries = 0;
             const today = getTodayKey();
             
-            Object.keys(statusTypes).forEach(key => {
-                if (statusTypes[key].stats) counts[key] = 0;
-            });
-
+            Object.keys(statusTypes).forEach(k => { if(statusTypes[k].stats) counts[k] = 0; });
+            
             students.forEach(s => {
-                if (currentFilterGrade !== 'all' && s.grade !== currentFilterGrade) return;
-
+                if(currentFilterGrade !== 'all' && s.grade !== currentFilterGrade) return;
                 for(let i=1; i<=10; i++) {
-                    const key = `${today}_slot_${i}`;
-                    const entry = s.attendance_log[key];
-                    if (entry) {
-                        const statusKey = entry.status;
-                        const count = entry.count || 1;
-                        if (statusKey && statusTypes[statusKey] && statusTypes[statusKey].stats) {
-                            counts[statusKey] = (counts[statusKey] || 0) + count;
-                            totalEntries += count;
-                        }
-                    }
+                    const entry = s.attendance_log[`${today}_slot_${i}`];
+                    if(entry && statusTypes[entry.status]?.stats) counts[entry.status] += (entry.count || 1);
                 }
             });
 
-            container.innerHTML += `
-                <div class="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border-r-4 border-gray-600 dark:border-gray-500 flex justify-between items-center hover:shadow-md transition-shadow">
-                    <div>
-                        <span class="block text-gray-400 dark:text-gray-500 text-[10px] font-bold">رصد اليوم</span>
-                        <span class="block text-2xl font-bold text-gray-700 dark:text-gray-200 font-mono leading-none mt-1">${totalEntries}</span>
-                    </div>
-                    <div class="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg">
-                        <i class="fas fa-calendar-day text-gray-400 dark:text-gray-500 text-lg"></i>
-                    </div>
-                </div>
-            `;
-
-            Object.keys(counts).forEach(key => {
-                if (counts[key] > 0) {
-                    const config = statusTypes[key];
-                    // Safety check if config is missing
-                    if(!config) return; 
-                    
+            Object.entries(counts).forEach(([k, v]) => {
+                if(v > 0) {
+                    const c = statusTypes[k];
                     container.innerHTML += `
-                        <div class="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border-r-4 ${config.color.split(' ')[0].replace('text-', 'border-')} flex justify-between items-center animate-fade-in hover:shadow-md transition-shadow">
-                            <div class="overflow-hidden">
-                                <span class="block text-gray-500 dark:text-gray-400 text-[10px] font-bold truncate" title="${config.label}">${config.label}</span>
-                                <span class="block text-xl font-bold ${config.color} font-mono leading-none mt-1">${counts[key]}</span>
-                            </div>
-                            <div class="${config.bg} p-2 rounded-lg ml-1 shrink-0">
-                                <i class="fas ${config.icon} ${config.color} text-lg"></i>
-                            </div>
-                        </div>
-                    `;
+                        <div class="bg-white dark:bg-gray-800 p-3 rounded-xl shadow border-r-4 ${c.color.replace('text','border')} flex justify-between items-center">
+                            <div><span class="text-[10px] text-gray-500">${c.label}</span><span class="block text-xl font-bold ${c.color}">${v}</span></div>
+                            <i class="fas ${c.icon} ${c.color} opacity-50"></i>
+                        </div>`;
                 }
             });
         }
@@ -1110,849 +544,282 @@
         function renderModalOptions() {
             const grid = document.getElementById('status-options-grid');
             grid.innerHTML = '';
-
-            Object.entries(statusTypes).forEach(([key, config]) => {
-                if (key === 'none') return;
-
+            Object.entries(statusTypes).forEach(([k, conf]) => {
+                if(k === 'none') return;
                 const btn = document.createElement('button');
-                btn.className = `flex flex-col items-center justify-center p-3 rounded-xl border transition-all hover:scale-105 ${config.bg} hover:shadow-lg border-transparent hover:border-gray-300 dark:hover:border-gray-500 group`;
-                btn.onclick = () => setStatus(key);
-                btn.innerHTML = `
-                    <div class="w-10 h-10 rounded-full bg-white dark:bg-gray-800 bg-opacity-60 flex items-center justify-center mb-1 shadow-sm group-hover:bg-white dark:group-hover:bg-gray-700">
-                        <i class="fas ${config.icon} text-xl ${config.color}"></i>
-                    </div>
-                    <span class="font-bold text-xs text-gray-700 dark:text-gray-300">${config.label}</span>
-                `;
+                btn.className = `flex flex-col items-center p-3 rounded-xl border ${conf.bg} hover:brightness-95 transition`;
+                btn.onclick = () => setStatus(k);
+                btn.innerHTML = `<i class="fas ${conf.icon} text-2xl mb-2 ${conf.color}"></i><span class="text-xs font-bold dark:text-gray-700">${conf.label}</span>`;
                 grid.appendChild(btn);
             });
         }
 
-        // --- History Modal Logic ---
-        function openHistoryModal(studentId) {
-            currentHistoryStudentId = studentId;
-            const student = students.find(s => s.id === studentId);
-            if(!student) return;
+        // --- Status Manager Logic ---
+        function openStatusManager() {
+            closeSettingsModal();
+            renderStatusList();
+            renderColorPicker();
+            renderIconPicker();
+            document.getElementById('status-manager-modal').classList.remove('hidden');
+        }
+        function closeStatusManager() {
+            document.getElementById('status-manager-modal').classList.add('hidden');
+            openSettingsModal();
+        }
+        function renderStatusList() {
+            const c = document.getElementById('status-list-container');
+            c.innerHTML = '';
+            Object.entries(statusTypes).forEach(([k, conf]) => {
+                if(k==='none') return;
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-700';
+                div.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center ${conf.bg} ${conf.color}"><i class="fas ${conf.icon}"></i></div>
+                        <span class="text-sm font-bold dark:text-white">${conf.label}</span>
+                        ${conf.stats?'<span class="text-[10px] bg-green-100 text-green-700 px-2 rounded">إحصاء</span>':''}
+                    </div>
+                    <button onclick="deleteStatusType('${k}')" class="text-red-500 hover:bg-red-100 p-1 rounded"><i class="fas fa-trash"></i></button>
+                `;
+                c.appendChild(div);
+            });
+        }
+        function renderColorPicker() {
+            const c = document.getElementById('color-picker-container');
+            c.innerHTML = '';
+            Object.entries(STATUS_COLORS).forEach(([k, v]) => {
+                const s = document.createElement('div');
+                s.className = 'color-swatch'; s.style.backgroundColor = v.display;
+                s.onclick = () => {
+                    document.querySelectorAll('.color-swatch').forEach(e=>e.classList.remove('selected'));
+                    s.classList.add('selected');
+                    document.getElementById('selected-color-key').value = k;
+                };
+                c.appendChild(s);
+            });
+            c.firstChild.click();
+        }
+        function renderIconPicker() {
+            const c = document.getElementById('icon-picker-container');
+            c.innerHTML = '';
+            STATUS_ICONS.forEach(icon => {
+                const i = document.createElement('div');
+                i.className = 'icon-option'; i.innerHTML = `<i class="fas ${icon}"></i>`;
+                i.onclick = () => {
+                    document.querySelectorAll('.icon-option').forEach(e=>e.classList.remove('selected'));
+                    i.classList.add('selected');
+                    document.getElementById('selected-icon-class').value = icon;
+                };
+                c.appendChild(i);
+            });
+            c.firstChild.click();
+        }
+        function addNewStatusType() {
+            const name = document.getElementById('new-status-name').value.trim();
+            const colorKey = document.getElementById('selected-color-key').value;
+            const icon = document.getElementById('selected-icon-class').value;
+            const stats = document.getElementById('new-status-stats').checked;
+            
+            if(!name) return alert('اكتب اسم الحالة');
+            
+            const id = 'status_' + Date.now();
+            const colorConf = STATUS_COLORS[colorKey] || STATUS_COLORS['gray'];
+            
+            statusTypes[id] = { label: name, icon: icon, color: colorConf.color, bg: colorConf.bg, stats: stats };
+            saveStatusTypes();
+            renderStatusList();
+            renderTable(); renderStats(); renderModalOptions();
+            document.getElementById('new-status-name').value = '';
+        }
+        function deleteStatusType(key) {
+            if(confirm('حذف هذه الحالة؟')) {
+                delete statusTypes[key];
+                saveStatusTypes();
+                renderStatusList();
+                renderTable(); renderStats(); renderModalOptions();
+            }
+        }
 
-            document.getElementById('history-student-name').innerText = student.name;
+        // --- Interaction Logic ---
+        function handleSearch(v) { currentSearchTerm = v; renderTable(); }
+        function handleGradeFilter(v) { currentFilterGrade = v; renderTable(); renderStats(); }
+        function populateGradeFilter() {
+            const sel = document.getElementById('grade-filter');
+            const grades = [...new Set(students.map(s => s.grade))].sort();
+            sel.innerHTML = '<option value="all">عرض كل الصفوف</option>';
+            grades.forEach(g => {
+                const opt = document.createElement('option');
+                opt.value = g; opt.innerText = g;
+                if(g === currentFilterGrade) opt.selected = true;
+                sel.appendChild(opt);
+            });
+        }
+        
+        function addNewStudent() {
+            const id = students.length ? Math.max(...students.map(s=>s.id))+1 : 1;
+            students.push({ id, name: '', grade: 'أول ثانوي', attendance_log: {}, notes: '' });
+            populateGradeFilter(); renderTable();
+            setTimeout(() => document.querySelectorAll('input[placeholder="ملاحظات..."]')[students.length-1].parentElement.parentElement.querySelector('h3').scrollIntoView(), 100);
+        }
+
+        function askToDelete(id) {
+            showDialog({
+                title: 'حذف طالب', message: 'هل أنت متأكد؟', type: 'danger', isConfirm: true,
+                onConfirm: () => { students = students.filter(s => s.id !== id); saveData(); renderTable(); renderStats(); populateGradeFilter(); }
+            });
+        }
+
+        function updateNote(id, val) {
+            const s = students.find(x => x.id === id);
+            if(s) { s.notes = val; saveData(); }
+        }
+
+        function openStatusModal(id, slot) {
+            currentEditingId = id; currentEditingSlot = slot;
+            const s = students.find(x => x.id === id);
+            document.getElementById('modal-student-name').innerText = s.name;
+            document.getElementById('status-modal').classList.remove('hidden');
+        }
+        function closeModal() { document.getElementById('status-modal').classList.add('hidden'); }
+
+        function setStatus(statusKey) {
+            if(currentEditingId && currentEditingSlot) {
+                const s = students.find(x => x.id === currentEditingId);
+                const key = `${getTodayKey()}_slot_${currentEditingSlot}`;
+                const current = s.attendance_log[key];
+
+                if(current && current.status === statusKey) {
+                    current.count = (current.count || 1) + 1;
+                } else if(current && (current.count||1) > 1) {
+                    if(!confirm('هذه الخانة مكررة. هل تريد استبدالها وتصفير العداد؟')) return;
+                    s.attendance_log[key] = { status: statusKey, count: 1 };
+                } else {
+                    s.attendance_log[key] = { status: statusKey, count: 1 };
+                }
+                saveData(); renderTable(); renderStats(); closeModal();
+            }
+        }
+
+        function openHistoryModal(id) {
+            currentHistoryStudentId = id;
+            const s = students.find(x => x.id === id);
+            document.getElementById('history-student-name').innerText = s.name;
             const tbody = document.getElementById('history-table-body');
             tbody.innerHTML = '';
+            const logs = Object.entries(s.attendance_log).sort((a,b) => b[0].localeCompare(a[0]));
             
-            const keys = Object.keys(student.attendance_log).sort((a, b) => b.localeCompare(a)); 
-            
-            if (keys.length === 0) {
+            if(!logs.length) {
                 document.getElementById('history-empty').classList.remove('hidden');
-                document.querySelector('#history-modal table').classList.add('hidden');
             } else {
                 document.getElementById('history-empty').classList.add('hidden');
-                document.querySelector('#history-modal table').classList.remove('hidden');
-                
-                keys.forEach(key => {
-                    const entry = student.attendance_log[key];
-                    // Support both new object format and old string format for history compatibility
-                    const statusKey = entry.status || entry; 
-                    const count = entry.count || 1;
-                    
-                    const config = statusTypes[statusKey];
-                    // Skip if status was deleted or invalid
-                    if (!config) return;
-
-                    let datePart = key;
-                    let slotPart = 'عام'; 
-                    if (key.includes('_slot_')) {
-                        const parts = key.split('_slot_');
-                        datePart = parts[0];
-                        slotPart = 'الخانة ' + parts[1];
-                    }
-
-                    const row = `
-                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                            <td class="px-4 py-3 border-b dark:border-gray-700 font-mono text-gray-600 dark:text-gray-400">
-                                <div class="flex flex-col">
-                                    <span>${datePart}</span>
-                                </div>
-                            </td>
-                            <td class="px-4 py-3 border-b dark:border-gray-700 text-gray-800 dark:text-gray-300 font-bold">${slotPart}</td>
-                            <td class="px-4 py-3 border-b dark:border-gray-700 text-center">
-                                <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${config.bg} ${config.color.split(' ')[0]}">
-                                    <i class="fas ${config.icon}"></i>
-                                    ${config.label}
-                                    ${count > 1 ? ` <span class="bg-gray-800 text-white text-[10px] px-1.5 rounded-full ml-1">x${count}</span>` : ''}
-                                </span>
-                            </td>
-                        </tr>
-                    `;
-                    tbody.innerHTML += row;
+                logs.forEach(([k, v]) => {
+                    const st = v.status || v; const c = v.count || 1;
+                    const conf = statusTypes[st] || statusTypes.none;
+                    let date = k.split('_slot_')[0];
+                    let slot = k.includes('_slot_') ? `الخانة ${k.split('_slot_')[1]}` : 'عام';
+                    tbody.innerHTML += `
+                        <tr class="border-b dark:border-gray-700">
+                            <td class="p-3">${date}</td><td class="p-3">${slot}</td>
+                            <td class="p-3"><span class="${conf.bg} ${conf.color} px-2 py-1 rounded text-xs font-bold">${conf.label} ${c>1?`(x${c})`:''}</span></td>
+                        </tr>`;
                 });
             }
-
-            const modal = document.getElementById('history-modal');
-            modal.classList.remove('hidden');
-            setTimeout(() => {
-                modal.classList.remove('opacity-0');
-                modal.firstElementChild.classList.remove('scale-95');
-                modal.firstElementChild.classList.add('scale-100');
-            }, 10);
+            document.getElementById('history-modal').classList.remove('hidden');
         }
+        function closeHistoryModal() { document.getElementById('history-modal').classList.add('hidden'); }
 
-        function closeHistoryModal() {
-            const modal = document.getElementById('history-modal');
-            modal.classList.add('opacity-0');
-            modal.firstElementChild.classList.add('scale-95');
-            setTimeout(() => {
-                modal.classList.add('hidden');
-            }, 200);
+        function openSettingsModal() { document.getElementById('settings-modal').classList.remove('hidden'); }
+        function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
+        
+        function exportData() {
+            const a = document.createElement('a');
+            a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(students));
+            a.download = `pe_backup_${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
         }
-
-        // --- REPORT GENERATION (UPDATED - A4 PROFESSIONAL OFFICIAL) ---
-
-        function getReportHeader(title) {
-            const today = new Date().toLocaleDateString('ar-SA');
-            return `
-                <div class="rpt-header">
-                    <div class="rpt-header-col rpt-header-right">
-                        <div class="rpt-title-main">المملكة العربية السعودية</div>
-                        <div class="rpt-title-sub">وزارة التعليم</div>
-                        <div class="rpt-title-sub">الإدارة العامة للتعليم</div>
-                        <div class="rpt-title-sub">مدرسة .........................</div>
-                    </div>
-                    <div class="rpt-header-col rpt-header-center">
-                        <i class="fas fa-running" style="font-size: 40px; color: #107C41;"></i>
-                    </div>
-                    <div class="rpt-header-col rpt-header-left">
-                        <div class="rpt-title-sub"><b>التاريخ:</b> ${today}</div>
-                        <div class="rpt-title-sub"><b>الموافق:</b> ...................</div>
-                    </div>
-                </div>
-                <div class="rpt-doc-title">${title}</div>
-            `;
-        }
-
-        function generateClassReport() {
-            if (students.length === 0) {
-                showDialog({ title: 'تنبيه', message: 'لا يوجد طلاب لطباعة التقرير.', type: 'danger' });
-                return;
-            }
-
-            const gradeText = currentFilterGrade !== 'all' ? ` (${currentFilterGrade})` : '';
-            let html = getReportHeader('كشف متابعة الطلاب' + gradeText);
-            
-            html += `
-                <table class="rpt-table">
-                    <thead>
-                        <tr>
-                            <th width="5%">#</th>
-                            <th width="35%">اسم الطالب</th>
-                            <th width="15%">الصف</th>
-                            <th width="10%">حضور</th>
-                            <th width="10%">غياب</th>
-                            <th width="10%">لا زي</th>
-                            <th width="15%">آخر حالة</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-
-            const reportStudents = students.filter(s => currentFilterGrade === 'all' || s.grade === currentFilterGrade);
-
-            if(reportStudents.length === 0) {
-                 html += `<tr><td colspan="7" style="padding: 20px;">لا توجد بيانات لهذا الصف</td></tr>`;
-            }
-
-            reportStudents.forEach((student, index) => {
-                let presentCount = 0;
-                let absentCount = 0;
-                let noKitCount = 0;
-                let lastStatusLabel = '-';
-
-                const logs = Object.entries(student.attendance_log);
-                logs.forEach(([key, val]) => {
-                    const status = val.status || val; // compatibility
-                    const count = val.count || 1;
-                    
-                    if (status === 'present_kit' || status === 'participating') presentCount += count;
-                    if (status === 'absent') absentCount += count;
-                    if (status === 'present_no_kit') noKitCount += count;
-                });
-
-                if (logs.length > 0) {
-                    logs.sort((a, b) => b[0].localeCompare(a[0]));
-                    const lastEntry = logs[0][1];
-                    const lastStatusKey = lastEntry.status || lastEntry;
-                    const st = statusTypes[lastStatusKey];
-                    lastStatusLabel = st ? st.label : lastStatusKey;
+        function importData(input) {
+            const fr = new FileReader();
+            fr.onload = (e) => {
+                const data = JSON.parse(e.target.result);
+                if(Array.isArray(data)) {
+                    students = data; saveData(); init(); closeSettingsModal();
+                    showDialog({title:'نجاح', message:'تم استرجاع البيانات', type:'success'});
                 }
-
-                html += `
-                    <tr>
-                        <td>${index + 1}</td>
-                        <td class="text-right-imp"><strong>${student.name}</strong></td>
-                        <td>${student.grade}</td>
-                        <td>${presentCount}</td>
-                        <td>${absentCount}</td>
-                        <td>${noKitCount}</td>
-                        <td>${lastStatusLabel}</td>
-                    </tr>
-                `;
-            });
-
-            html += `</tbody></table>`;
-            html += getReportFooter();
-
-            printHtml(html);
+            };
+            if(input.files[0]) fr.readAsText(input.files[0]);
         }
-
-        function generateIndividualReport(studentId) {
-            const student = students.find(s => s.id === studentId);
-            if (!student) return;
-
-            let html = getReportHeader('بيان حالة طالب - تفصيلي');
-
-            // Student Info (Formal Box)
-            html += `
-                <div class="rpt-info-box">
-                    <div class="rpt-info-item">
-                        <span class="rpt-info-label">اسم الطالب</span>
-                        <span class="rpt-info-val">${student.name}</span>
-                    </div>
-                    <div class="rpt-info-item">
-                        <span class="rpt-info-label">الصف الدراسي</span>
-                        <span class="rpt-info-val">${student.grade}</span>
-                    </div>
-                    <div class="rpt-info-item" style="flex: 1; margin-right: 20px;">
-                        <span class="rpt-info-label">الملاحظات</span>
-                        <span class="rpt-info-val">${student.notes || 'لا توجد'}</span>
-                    </div>
-                </div>
-            `;
-
-            // Stats
-            const logs = Object.entries(student.attendance_log).sort((a, b) => b[0].localeCompare(a[0]));
-            let present = 0, absent = 0, excused = 0;
-            
-            logs.forEach(([, val]) => {
-                const status = val.status || val;
-                const count = val.count || 1;
-                
-                if(['present_kit', 'participating', 'present_no_kit'].includes(status)) present += count;
-                if(status === 'absent') absent += count;
-                if(status === 'excused') excused += count;
-            });
-
-            // Stats Grid (Clean)
-            html += `
-                <div class="rpt-stats-grid">
-                    <div class="rpt-stat-card" style="border-color: #166534; background: #f0fdf4 !important;">
-                        <span class="rpt-stat-num" style="color: #166534;">${present}</span>
-                        <span class="rpt-stat-txt">أيام الحضور</span>
-                    </div>
-                    <div class="rpt-stat-card" style="border-color: #991b1b; background: #fef2f2 !important;">
-                        <span class="rpt-stat-num" style="color: #991b1b;">${absent}</span>
-                        <span class="rpt-stat-txt">أيام الغياب</span>
-                    </div>
-                    <div class="rpt-stat-card" style="border-color: #1e40af; background: #eff6ff !important;">
-                        <span class="rpt-stat-num" style="color: #1e40af;">${excused}</span>
-                        <span class="rpt-stat-txt">أعذار مقبولة</span>
-                    </div>
-                </div>
-            `;
-
-            // Logs Table
-            if (logs.length === 0) {
-                html += `<div style="text-align: center; padding: 20px; border: 1px dashed #999;">لا يوجد سجل حضور مسجل.</div>`;
-            } else {
-                html += `
-                    <div style="font-weight: bold; margin-bottom: 5px; border-bottom: 2px solid #333; padding-bottom: 2px;">سجل المتابعة اليومي:</div>
-                    <table class="rpt-table">
-                        <thead>
-                            <tr>
-                                <th width="25%">التاريخ</th>
-                                <th width="15%">الخانة</th>
-                                <th width="60%">الحالة</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                `;
-
-                logs.forEach(([key, val]) => {
-                    const status = val.status || val;
-                    const count = val.count || 1;
-                    
-                    const config = statusTypes[status] || statusTypes['none'];
-                    if(!config) return; // Skip if status type deleted
-
-                    let datePart = key;
-                    let slotPart = '-'; 
-                    if (key.includes('_slot_')) {
-                        const parts = key.split('_slot_');
-                        datePart = parts[0];
-                        slotPart = 'الخانة ' + parts[1];
-                    }
-                    
-                    html += `
-                        <tr>
-                            <td style="font-family: 'Courier New', monospace;">${datePart}</td>
-                            <td>${slotPart}</td>
-                            <td>${config.label} ${count > 1 ? `(x${count})` : ''}</td>
-                        </tr>
-                    `;
-                });
-                html += `</tbody></table>`;
-            }
-
-            html += getReportFooter();
-            printHtml(html);
-        }
-
-        function getReportFooter() {
-            return `
-                <div class="rpt-footer">
-                    <div class="rpt-sig-box">
-                        <p class="rpt-sig-title">معلم التربية البدنية</p>
-                        <div class="rpt-sig-line"></div>
-                    </div>
-                    <div class="rpt-sig-box">
-                        <p class="rpt-sig-title">وكيل الشؤون الطلابية</p>
-                        <div class="rpt-sig-line"></div>
-                    </div>
-                    <div class="rpt-sig-box">
-                        <p class="rpt-sig-title">مدير المدرسة</p>
-                        <div class="rpt-sig-line"></div>
-                    </div>
-                </div>
-            `;
-        }
-
-        function printHtml(htmlContent) {
-            const printArea = document.getElementById('print-area');
-            printArea.innerHTML = htmlContent;
-            
-            // Allow CSS to apply
-            setTimeout(() => {
-                window.print();
-                // Clear after logic
-                setTimeout(() => {
-                    printArea.innerHTML = '';
-                }, 1000);
-            }, 200);
-        }
-
-        // ... [Rest of standard app logic remains untouched] ...
-        // (Keeping dialogs, add/delete logic as before)
-
-        function showDialog(options) {
-            const modal = document.getElementById('custom-dialog-modal');
-            const titleEl = document.getElementById('custom-dialog-title');
-            const msgEl = document.getElementById('custom-dialog-message');
-            const iconEl = document.getElementById('custom-dialog-icon');
-            const actionsEl = document.getElementById('custom-dialog-actions');
-            const headerEl = document.getElementById('custom-dialog-header');
-
-            iconEl.className = 'fas text-4xl mb-4 block transition-colors';
-            headerEl.className = 'bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm transform transition-all scale-100 overflow-hidden border-t-4';
-
-            titleEl.innerText = options.title || 'تنبيه';
-            msgEl.innerText = options.message || '';
-            
-            if (options.type === 'danger') {
-                iconEl.classList.add('text-red-500', 'fa-exclamation-triangle');
-                headerEl.classList.add('border-red-500');
-            } else if (options.type === 'success') {
-                iconEl.classList.add('text-green-500', 'fa-check-circle');
-                headerEl.classList.add('border-green-500');
-            } else {
-                iconEl.classList.add('text-blue-500', 'fa-info-circle');
-                headerEl.classList.add('border-blue-500');
-            }
-
-            actionsEl.innerHTML = '';
-            if (options.isConfirm) {
-                const cancelBtn = document.createElement('button');
-                cancelBtn.className = 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-5 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm';
-                cancelBtn.innerText = 'إلغاء';
-                cancelBtn.onclick = closeDialog;
-
-                const confirmBtn = document.createElement('button');
-                confirmBtn.className = `px-5 py-2 rounded-lg font-bold shadow-sm transition-colors text-white text-sm ${options.type === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-primary hover:bg-green-800'}`;
-                confirmBtn.innerText = 'نعم، تابع';
-                confirmBtn.onclick = () => {
-                    if (options.onConfirm) options.onConfirm();
-                    closeDialog();
-                };
-
-                actionsEl.appendChild(cancelBtn);
-                actionsEl.appendChild(confirmBtn);
-            } else {
-                const okBtn = document.createElement('button');
-                okBtn.className = 'bg-gray-800 dark:bg-gray-600 hover:bg-gray-900 dark:hover:bg-gray-500 text-white px-8 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm';
-                okBtn.innerText = 'موافق';
-                okBtn.onclick = closeDialog;
-                actionsEl.appendChild(okBtn);
-            }
-
-            modal.classList.remove('hidden');
-            setTimeout(() => {
-                modal.classList.remove('opacity-0');
-                modal.firstElementChild.classList.remove('scale-95');
-                modal.firstElementChild.classList.add('scale-100');
-            }, 10);
-        }
-
-        function closeDialog() {
-            const modal = document.getElementById('custom-dialog-modal');
-            modal.classList.add('opacity-0');
-            modal.firstElementChild.classList.add('scale-95');
-            setTimeout(() => {
-                modal.classList.add('hidden');
-            }, 200);
-        }
-
-        function addNewStudent() {
-            const newId = students.length > 0 ? Math.max(...students.map(s => s.id)) + 1 : 1;
-            students.push({
-                id: newId,
-                name: '',
-                grade: students.length > 0 ? students[students.length-1].grade : 'أول ثانوي',
-                attendance_log: {}, 
-                notes: ''
-            });
-            populateGradeFilter(); 
-            renderTable();
-            renderStats();
-            
-            setTimeout(() => {
-                const inputs = document.querySelectorAll('input[placeholder="اسم الطالب"]');
-                if(inputs.length > 0) inputs[inputs.length - 1].focus();
-            }, 100);
-        }
-
-        function askToDeleteStudent(id) {
-            showDialog({
-                title: 'حذف طالب',
-                message: 'هل أنت متأكد من رغبتك في حذف هذا الطالب وسجله بالكامل؟',
-                type: 'danger',
-                isConfirm: true,
-                onConfirm: () => {
-                    students = students.filter(s => s.id !== id);
-                    populateGradeFilter(); 
-                    renderTable();
-                    renderStats();
-                    showDialog({ title: 'تم الحذف', message: 'تم حذف الطالب بنجاح.', type: 'success' });
+        function importNamesFromText(input) {
+            const fr = new FileReader();
+            fr.onload = (e) => {
+                pendingImportNames = e.target.result.split('\n').map(x=>x.trim()).filter(x=>x);
+                if(pendingImportNames.length) {
+                    closeSettingsModal();
+                    document.getElementById('imported-count').innerText = pendingImportNames.length;
+                    document.getElementById('grade-selection-modal').classList.remove('hidden');
                 }
+            };
+            if(input.files[0]) fr.readAsText(input.files[0]);
+        }
+        function closeGradeModal() { document.getElementById('grade-selection-modal').classList.add('hidden'); }
+        function confirmImportNames() {
+            const grade = document.getElementById('import-grade-input').value;
+            if(!grade) return alert('الرجاء كتابة الصف');
+            let maxId = students.length ? Math.max(...students.map(s=>s.id)) : 0;
+            pendingImportNames.forEach(name => {
+                students.push({ id: ++maxId, name, grade, attendance_log: {}, notes: '' });
             });
+            saveData(); init(); closeGradeModal();
         }
 
-        function updateStudent(id, field, value) {
-            const student = students.find(s => s.id === id);
-            if (student) {
-                student[field] = value;
-                saveData();
-                if(field === 'grade') populateGradeFilter(); 
+        function openEditStudentModal(id) {
+            const s = students.find(x => x.id === id);
+            document.getElementById('edit-student-id').value = s.id;
+            document.getElementById('edit-student-name').value = s.name;
+            document.getElementById('edit-student-grade').value = s.grade;
+            document.getElementById('edit-student-modal').classList.remove('hidden');
+        }
+        function closeEditStudentModal() { document.getElementById('edit-student-modal').classList.add('hidden'); }
+        function saveStudentDetails() {
+            const id = parseInt(document.getElementById('edit-student-id').value);
+            const s = students.find(x => x.id === id);
+            if(s) {
+                s.name = document.getElementById('edit-student-name').value;
+                s.grade = document.getElementById('edit-student-grade').value;
+                saveData(); init(); closeEditStudentModal();
             }
         }
 
         function askToClearData() {
             showDialog({
-                title: 'تصفير البيانات',
-                message: 'تحذير: سيتم حذف جميع الطلاب والسجلات. هل أنت متأكد؟',
-                type: 'danger',
-                isConfirm: true,
-                onConfirm: () => {
-                    students = [];
-                    populateGradeFilter(); 
-                    renderTable();
-                    renderStats();
-                    showDialog({ title: 'تم التصفير', message: 'تم حذف جميع البيانات بنجاح.', type: 'success' });
-                }
+                title: 'تصفير شامل', message: 'سيتم حذف كل شيء!', type: 'danger', isConfirm: true,
+                onConfirm: () => { students = []; saveData(); init(); }
             });
         }
 
-        function openStatusModal(id, slotNumber) {
-            currentEditingId = id;
-            currentEditingSlot = slotNumber;
-            const dateKey = getTodayKey(); 
+        function showDialog(opt) {
+            const m = document.getElementById('custom-dialog-modal');
+            document.getElementById('custom-dialog-title').innerText = opt.title;
+            document.getElementById('custom-dialog-message').innerText = opt.message;
+            const icon = document.getElementById('custom-dialog-icon');
+            const acts = document.getElementById('custom-dialog-actions');
             
-            const student = students.find(s => s.id === id);
-            document.getElementById('modal-student-name').innerText = student ? student.name : '';
-            document.getElementById('modal-date-display').innerText = dateKey;
-            document.getElementById('modal-slot-number').innerText = slotNumber;
-
-            // Handle Current Status Panel
-            const panel = document.getElementById('modal-current-status-section');
-            const display = document.getElementById('modal-current-status-display');
-            const btnDec = document.getElementById('btn-decrement');
+            icon.className = `text-4xl mb-4 block fas ${opt.type==='danger'?'fa-exclamation-triangle text-red-500':opt.type==='success'?'fa-check-circle text-green-500':'fa-info-circle text-blue-500'}`;
             
-            const compositeKey = `${dateKey}_slot_${slotNumber}`;
-            const entry = student.attendance_log[compositeKey];
-
-            if (entry && entry.status) {
-                const config = statusTypes[entry.status] || statusTypes['none'];
-                const count = entry.count || 1;
-                
-                panel.classList.remove('hidden');
-                display.innerHTML = `
-                    <div class="px-2 py-1 rounded bg-white border border-gray-200 shadow-sm flex items-center gap-2">
-                        <i class="fas ${config.icon} ${config.color}"></i>
-                        <span class="text-sm font-bold text-gray-700">${config.label}</span>
-                        ${count > 1 ? `<span class="bg-red-500 text-white text-[10px] px-1.5 rounded-full font-bold">x${count}</span>` : ''}
-                    </div>
-                `;
-                
-                if (count > 1) {
-                    btnDec.classList.remove('hidden');
-                } else {
-                    btnDec.classList.add('hidden');
-                }
+            acts.innerHTML = '';
+            if(opt.isConfirm) {
+                acts.innerHTML = `<button onclick="document.getElementById('custom-dialog-modal').classList.add('hidden')" class="bg-gray-200 px-4 py-2 rounded">إلغاء</button>`;
+                const btn = document.createElement('button');
+                btn.className = 'bg-red-600 text-white px-4 py-2 rounded';
+                btn.innerText = 'نعم';
+                btn.onclick = () => { opt.onConfirm(); document.getElementById('custom-dialog-modal').classList.add('hidden'); };
+                acts.appendChild(btn);
             } else {
-                panel.classList.add('hidden');
+                acts.innerHTML = `<button onclick="document.getElementById('custom-dialog-modal').classList.add('hidden')" class="bg-gray-800 text-white px-6 py-2 rounded">موافق</button>`;
             }
-            
-            const modal = document.getElementById('status-modal');
-            modal.classList.remove('hidden');
-            setTimeout(() => {
-                modal.firstElementChild.classList.remove('scale-100', 'opacity-100');
-                modal.classList.remove('opacity-0');
-                modal.firstElementChild.classList.add('scale-100');
-            }, 10);
+            m.classList.remove('hidden');
         }
-
-        function closeModal() {
-            const modal = document.getElementById('status-modal');
-            modal.classList.add('opacity-0');
-            
-            setTimeout(() => {
-                modal.classList.add('hidden');
-                modal.classList.remove('opacity-0');
-                currentEditingId = null;
-                currentEditingSlot = null;
-            }, 200);
-        }
-
-        function setStatus(statusKey) {
-            if (currentEditingId !== null && currentEditingSlot !== null) {
-                const student = students.find(s => s.id === currentEditingId);
-                if (student) {
-                    const today = getTodayKey();
-                    const compositeKey = `${today}_slot_${currentEditingSlot}`;
-                    
-                    const currentEntry = student.attendance_log[compositeKey];
-                    
-                    // Case 1: Incrementing same status
-                    if (currentEntry && currentEntry.status === statusKey) {
-                        currentEntry.count = (currentEntry.count || 1) + 1;
-                        saveData();
-                        renderTable();
-                        renderStats();
-                        closeModal();
-                        return;
-                    }
-
-                    // Case 2: Changing status with existing count > 1
-                    if (currentEntry && (currentEntry.count || 1) > 1) {
-                        const oldConfig = statusTypes[currentEntry.status] || DEFAULT_STATUS_TYPES['none'];
-                        const newConfig = statusTypes[statusKey] || DEFAULT_STATUS_TYPES['none'];
-                        
-                        showDialog({
-                            title: 'تأكيد تغيير الحالة',
-                            message: `هذه الخانة مسجلة كـ "${oldConfig.label}" ومكررة ${currentEntry.count} مرات. هل تريد استبدالها بـ "${newConfig.label}"؟ سيتم تصفير العداد.`,
-                            type: 'danger',
-                            isConfirm: true,
-                            onConfirm: () => {
-                                student.attendance_log[compositeKey] = { status: statusKey, count: 1 };
-                                saveData();
-                                renderTable();
-                                renderStats();
-                                closeModal();
-                            }
-                        });
-                        return; 
-                    }
-
-                    // Case 3: Normal set/overwrite (Count is 1 or new entry)
-                    student.attendance_log[compositeKey] = { status: statusKey, count: 1 };
-                    
-                    saveData();
-                    renderTable();
-                    renderStats();
-                    closeModal();
-                }
-            }
-        }
-
-        function decrementCurrentStatus() {
-            if (currentEditingId !== null && currentEditingSlot !== null) {
-                const student = students.find(s => s.id === currentEditingId);
-                if (student) {
-                    const today = getTodayKey();
-                    const compositeKey = `${today}_slot_${currentEditingSlot}`;
-                    const entry = student.attendance_log[compositeKey];
-                    
-                    if (entry && entry.count > 1) {
-                        entry.count--;
-                        saveData();
-                        renderTable();
-                        renderStats();
-                        // Re-open modal to refresh UI without closing
-                        openStatusModal(currentEditingId, currentEditingSlot);
-                    }
-                }
-            }
-        }
-
-        function clearCurrentStatus() {
-            if (currentEditingId !== null && currentEditingSlot !== null) {
-                const student = students.find(s => s.id === currentEditingId);
-                if (student) {
-                    const today = getTodayKey();
-                    const compositeKey = `${today}_slot_${currentEditingSlot}`;
-                    delete student.attendance_log[compositeKey];
-                    saveData();
-                    renderTable();
-                    renderStats();
-                    closeModal();
-                }
-            }
-        }
-
-        function openSettingsModal() {
-            applyTheme();
-            applyStatsVisibility();
-            const modal = document.getElementById('settings-modal');
-            modal.classList.remove('hidden');
-            setTimeout(() => {
-                modal.classList.remove('opacity-0');
-                modal.firstElementChild.classList.remove('scale-95');
-                modal.firstElementChild.classList.add('scale-100');
-            }, 10);
-        }
-
-        function closeSettingsModal() {
-            const modal = document.getElementById('settings-modal');
-            modal.classList.add('opacity-0');
-            modal.firstElementChild.classList.add('scale-95');
-            setTimeout(() => {
-                modal.classList.add('hidden');
-            }, 200);
-        }
-
-        function exportData() {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(students));
-            const downloadAnchorNode = document.createElement('a');
-            downloadAnchorNode.setAttribute("href", dataStr);
-            const date = new Date().toISOString().slice(0, 10);
-            downloadAnchorNode.setAttribute("download", `pe_students_backup_${date}.json`);
-            document.body.appendChild(downloadAnchorNode);
-            downloadAnchorNode.click();
-            downloadAnchorNode.remove();
-            closeSettingsModal();
-            showDialog({ title: 'نجاح', message: 'تم تحميل ملف النسخة الاحتياطية.', type: 'success' });
-        }
-
-        function importData(input) {
-            const file = input.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const importedData = JSON.parse(e.target.result);
-                    if (Array.isArray(importedData)) {
-                        showDialog({
-                            title: 'تأكيد الاستيراد',
-                            message: `تم العثور على ${importedData.length} طالب في الملف. هل تريد استبدال البيانات الحالية؟`,
-                            type: 'info',
-                            isConfirm: true,
-                            onConfirm: () => {
-                                students = importedData;
-                                saveData();
-                                init(); 
-                                closeSettingsModal();
-                                showDialog({ title: 'تم', message: 'تم استيراد البيانات بنجاح!', type: 'success' });
-                            }
-                        });
-                    } else {
-                        showDialog({ title: 'خطأ', message: 'صيغة الملف غير صحيحة.', type: 'danger' });
-                    }
-                } catch (error) {
-                    showDialog({ title: 'خطأ', message: 'فشل في قراءة الملف.', type: 'danger' });
-                }
-                input.value = '';
-            };
-            reader.readAsText(file);
-        }
-
-        function importNamesFromText(input) {
-            const file = input.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const text = e.target.result;
-                pendingImportNames = text.split(/\r?\n/).map(name => name.trim()).filter(name => name.length > 0);
-                if (pendingImportNames.length > 0) {
-                    closeSettingsModal();
-                    openGradeModal(pendingImportNames.length);
-                } else {
-                    showDialog({ title: 'تنبيه', message: 'لم يتم العثور على أي أسماء.', type: 'danger' });
-                }
-                input.value = '';
-            };
-            reader.readAsText(file);
-        }
-
-        function openGradeModal(count) {
-            document.getElementById('imported-count').innerText = count;
-            document.getElementById('import-grade-input').value = ''; 
-            const modal = document.getElementById('grade-selection-modal');
-            modal.classList.remove('hidden');
-            setTimeout(() => {
-                modal.classList.remove('opacity-0');
-                modal.firstElementChild.classList.remove('scale-95');
-                modal.firstElementChild.classList.add('scale-100');
-                document.getElementById('import-grade-input').focus();
-            }, 10);
-        }
-
-        function closeGradeModal() {
-            const modal = document.getElementById('grade-selection-modal');
-            modal.classList.add('opacity-0');
-            modal.firstElementChild.classList.add('scale-95');
-            setTimeout(() => {
-                modal.classList.add('hidden');
-                pendingImportNames = []; 
-            }, 200);
-        }
-
-        function confirmImportNames() {
-            const gradeInput = document.getElementById('import-grade-input');
-            const gradeName = gradeInput.value.trim();
-
-            if (!gradeName) {
-                gradeInput.classList.add('ring-2', 'ring-red-500');
-                setTimeout(() => gradeInput.classList.remove('ring-2', 'ring-red-500'), 500);
-                return;
-            }
-
-            let maxId = students.length > 0 ? Math.max(...students.map(s => s.id)) : 0;
-            const newStudents = pendingImportNames.map(name => {
-                maxId++;
-                return {
-                    id: maxId,
-                    name: name,
-                    grade: gradeName,
-                    attendance_log: {},
-                    notes: ''
-                };
-            });
-
-            students = [...students, ...newStudents];
-            saveData();
-            populateGradeFilter(); 
-            renderTable();
-            renderStats();
-            closeGradeModal();
-            showDialog({ title: 'تم بنجاح', message: `تم إضافة ${newStudents.length} طالب إلى الصف "${gradeName}".`, type: 'success' });
-        }
-
-        function saveData() {
-            localStorage.setItem('pe_students', JSON.stringify(students));
-        }
-
-        // --- NEW EDIT STUDENT LOGIC ---
-
-        function openEditStudentModal(id) {
-            const student = students.find(s => s.id === id);
-            if (student) {
-                document.getElementById('edit-student-id').value = student.id;
-                document.getElementById('edit-student-name').value = student.name;
-                document.getElementById('edit-student-grade').value = student.grade;
-                
-                const modal = document.getElementById('edit-student-modal');
-                modal.classList.remove('hidden');
-                setTimeout(() => {
-                    modal.classList.remove('opacity-0');
-                    modal.firstElementChild.classList.remove('scale-95');
-                    modal.firstElementChild.classList.add('scale-100');
-                }, 10);
-            }
-        }
-
-        function closeEditStudentModal() {
-            const modal = document.getElementById('edit-student-modal');
-            modal.classList.add('opacity-0');
-            modal.firstElementChild.classList.add('scale-95');
-            setTimeout(() => {
-                modal.classList.add('hidden');
-            }, 200);
-        }
-
-        function saveStudentDetails() {
-            const id = parseInt(document.getElementById('edit-student-id').value);
-            const name = document.getElementById('edit-student-name').value;
-            const grade = document.getElementById('edit-student-grade').value;
-            
-            const student = students.find(s => s.id === id);
-            if (student) {
-                student.name = name;
-                student.grade = grade;
-                saveData();
-                populateGradeFilter(); // In case grade changed
-                renderTable(); // Refresh UI
-                closeEditStudentModal();
-            }
-        }
-
-        // --- Event Listeners ---
-        document.getElementById('status-modal').addEventListener('click', function(e) {
-            if (e.target === this) closeModal();
-        });
-        document.getElementById('settings-modal').addEventListener('click', function(e) {
-            if (e.target === this) closeSettingsModal();
-        });
-        document.getElementById('custom-dialog-modal').addEventListener('click', function(e) {
-            if (e.target === this) closeDialog();
-        });
-        document.getElementById('grade-selection-modal').addEventListener('click', function(e) {
-             if (e.target === this) closeGradeModal();
-        });
-        document.getElementById('history-modal').addEventListener('click', function(e) {
-             if (e.target === this) closeHistoryModal();
-        });
-        document.getElementById('status-manager-modal').addEventListener('click', function(e) {
-             if (e.target === this) closeStatusManager();
-        });
-        document.getElementById('edit-student-modal').addEventListener('click', function(e) {
-             if (e.target === this) closeEditStudentModal();
-        });
 
         init();
-
     </script>
-
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('service-worker.js').catch(console.error);
-  });
-}
-let deferredPrompt = null;
-const installBar = document.getElementById('installBar');
-const installBtn = document.getElementById('installBtn');
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  if (installBar) installBar.style.display = 'flex';
-});
-if (installBtn) installBtn.addEventListener('click', async () => {
-  if (!deferredPrompt) return;
-  installBtn.disabled = true;
-  await deferredPrompt.prompt();
-  await deferredPrompt.userChoice;
-  deferredPrompt = null;
-  if (installBar) installBar.style.display = 'none';
-});
-window.addEventListener('appinstalled', () => {
-  deferredPrompt = null;
-  if (installBar) installBar.style.display = 'none';
-});
-</script>
 </body>
 </html>
