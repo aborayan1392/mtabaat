@@ -43,11 +43,13 @@ jobs:
       - name: Restore source
         run: |
           set -euo pipefail
-          mkdir -p work dist
-          cat studenttracker-v210-source/part-*.b64 > work/source.b64
-          base64 --decode work/source.b64 > work/source.zip
-          unzip -t work/source.zip
-          unzip -q work/source.zip -d work/project
+          mkdir -p work/project dist
+          cat studenttracker-build/source/part-000.b64 studenttracker-build/source/part-001.b64 studenttracker-build/source/part-002.b64 studenttracker-build/tail/part-*.b64 > work/source.b64
+          test "$(wc -c < work/source.b64)" -eq 66368
+          base64 --decode work/source.b64 > work/source.tar.xz
+          tar -tJf work/source.tar.xz >/dev/null
+          tar -xJf work/source.tar.xz -C work/project
+          test -f work/project/settings.gradle
           grep -q "versionName '2.1.0'" work/project/app/build.gradle
 
       - name: Build release APK
