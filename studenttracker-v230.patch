@@ -1,0 +1,166 @@
+diff -ruN a/BUILD_REPORT.txt b/BUILD_REPORT.txt
+--- a/BUILD_REPORT.txt	2026-08-19 21:35:18.000000000 +0000
++++ b/BUILD_REPORT.txt	2026-08-20 02:24:13.792550119 +0000
+@@ -13,3 +13,6 @@
+ Validation in this environment:
+ - Java source was syntax-scanned; no syntax-form errors detected before Android symbol resolution.
+ - Full Android APK compilation/signing was not performed in this runtime because the Android SDK build-tool binaries and the original app signing keystore are not available here.
++
++- إضافة تهيئة كاملة وآمنة للتطبيق من الإعدادات.
++- إضافة إطار ذهبي أنيق لبطاقات الطلاب.
+diff -ruN a/app/build.gradle b/app/build.gradle
+--- a/app/build.gradle	2026-08-20 00:38:17.922163487 +0000
++++ b/app/build.gradle	2026-08-20 02:24:13.792395872 +0000
+@@ -10,8 +10,8 @@
+         applicationId 'com.aborayan.studenttracker'
+         minSdk 24
+         targetSdk 34
+-        versionCode 15
+-        versionName '2.2.0'
++        versionCode 16
++        versionName '2.3.0'
+     }
+ 
+     buildTypes {
+diff -ruN a/app/src/main/java/com/aborayan/studenttracker/DatabaseHelper.java b/app/src/main/java/com/aborayan/studenttracker/DatabaseHelper.java
+--- a/app/src/main/java/com/aborayan/studenttracker/DatabaseHelper.java	2026-08-20 00:38:17.920528605 +0000
++++ b/app/src/main/java/com/aborayan/studenttracker/DatabaseHelper.java	2026-08-20 02:24:13.790557713 +0000
+@@ -321,6 +321,36 @@
+         }
+     }
+ 
++    /**
++     * تهيئة التطبيق بالكامل وحذف جميع بيانات المستخدم مع إعادة الحالات الافتراضية فقط.
++     */
++    public void resetAllData() {
++        SQLiteDatabase db = getWritableDatabase();
++        db.beginTransaction();
++        try {
++            // نحذف الجداول التابعة أولاً ثم الأساسية للحفاظ على سلامة المفاتيح الخارجية.
++            db.delete("followups", null, null);
++            db.delete("guardian_contacts", null, null);
++            db.delete("behavior_records", null, null);
++            db.delete("assessments", null, null);
++            db.delete("student_reminders", null, null);
++            db.delete("class_sessions", null, null);
++            db.delete("students", null, null);
++            db.delete("statuses", null, null);
++            db.delete("school_settings", null, null);
++
++            // إعادة العدادات الداخلية حتى يبدأ التطبيق فعلياً من الصفر.
++            try {
++                db.execSQL("DELETE FROM sqlite_sequence WHERE name IN ('students','statuses','followups','class_sessions','guardian_contacts','behavior_records','assessments','student_reminders')");
++            } catch (Exception ignored) {}
++
++            insertDefaultStatuses(db);
++            db.setTransactionSuccessful();
++        } finally {
++            db.endTransaction();
++        }
++    }
++
+     public Student getStudent(long id) {
+         try (Cursor c = getReadableDatabase().rawQuery(
+                 "SELECT s._id,s.student_no,s.name,s.grade,s.section,s.guardian_phone,s.notes,s.display_order " +
+diff -ruN a/app/src/main/java/com/aborayan/studenttracker/SettingsActivity.java b/app/src/main/java/com/aborayan/studenttracker/SettingsActivity.java
+--- a/app/src/main/java/com/aborayan/studenttracker/SettingsActivity.java	2026-08-19 20:07:20.000000000 +0000
++++ b/app/src/main/java/com/aborayan/studenttracker/SettingsActivity.java	2026-08-20 02:24:13.792232228 +0000
+@@ -173,6 +173,23 @@
+         LinearLayout.LayoutParams transferLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);
+         transferLp.setMargins(0,0,0,UiUtils.dp(this,10));
+         body.addView(transferPanel,transferLp);
++
++        section("منطقة الخطر");
++        LinearLayout dangerPanel = UiUtils.vertical(this);
++        dangerPanel.setPadding(UiUtils.dp(this,14),UiUtils.dp(this,14),UiUtils.dp(this,14),UiUtils.dp(this,14));
++        dangerPanel.setBackground(UiUtils.roundedStroke("#FFF8F7","#E9B7B2",18,1,this));
++        TextView dangerTitle = UiUtils.text(this,"تهيئة التطبيق بالكامل",16,Color.parseColor("#9F2D26"),true);
++        dangerTitle.setGravity(Gravity.RIGHT);
++        dangerPanel.addView(dangerTitle);
++        TextView dangerInfo = UiUtils.text(this,"يحذف جميع الطلاب والمتابعات والتواصل والسلوك والتقييمات والتنبيهات والحصص وبيانات المدرسة والإعدادات، ثم يعيد التطبيق لحالته الأولى.",12,Color.parseColor("#6E4A47"),false);
++        dangerInfo.setPadding(0,UiUtils.dp(this,5),0,UiUtils.dp(this,9));
++        dangerPanel.addView(dangerInfo);
++        TextView resetApp = UiUtils.pill(this,"تهيئة التطبيق وحذف جميع البيانات","#B3261E",Color.WHITE);
++        resetApp.setOnClickListener(v -> showResetFlow());
++        dangerPanel.addView(resetApp,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,UiUtils.dp(this,46)));
++        LinearLayout.LayoutParams dangerLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);
++        dangerLp.setMargins(0,0,0,UiUtils.dp(this,16));
++        body.addView(dangerPanel,dangerLp);
+     }
+ 
+     private LinearLayout.LayoutParams weightedCardParams() {
+@@ -287,6 +304,59 @@
+     }
+     private void disableAppLock(){new AlertDialog.Builder(this).setTitle("إلغاء الحماية").setMessage("سيتم فتح التطبيق دون رقم سري. هل تريد المتابعة؟").setPositiveButton("إلغاء الحماية",(d,w)->{db.setSetting("app_lock_enabled","0");db.setSetting("biometric_enabled","0");Toast.makeText(this,"تم إلغاء الحماية",Toast.LENGTH_SHORT).show();}).setNegativeButton("تراجع",null).show();}
+ 
++    private void showResetFlow() {
++        new AlertDialog.Builder(this)
++                .setTitle("تهيئة التطبيق بالكامل")
++                .setMessage("هذه العملية لا يمكن التراجع عنها، وستحذف جميع البيانات المسجلة داخل التطبيق. ننصح بإنشاء نسخة احتياطية قبل المتابعة.")
++                .setPositiveButton("متابعة للتهيئة", (d,w) -> showFinalResetDialog())
++                .setNeutralButton("نسخة احتياطية أولاً", (d,w) -> createBackup())
++                .setNegativeButton("إلغاء", null)
++                .show();
++    }
++
++    private void showFinalResetDialog() {
++        LinearLayout wrap=UiUtils.vertical(this);
++        wrap.setPadding(UiUtils.dp(this,18),0,UiUtils.dp(this,18),0);
++        TextView note=UiUtils.text(this,"للتأكيد النهائي اكتب كلمة «تهيئة» في الحقل التالي.",13,Color.parseColor("#6D3A36"),true);
++        note.setGravity(Gravity.RIGHT);
++        EditText confirm=field("اكتب: تهيئة");
++        wrap.addView(note);
++        wrap.addView(confirm);
++        AlertDialog dialog=new AlertDialog.Builder(this)
++                .setTitle("تأكيد نهائي")
++                .setView(wrap)
++                .setPositiveButton("حذف جميع البيانات",null)
++                .setNegativeButton("إلغاء",null)
++                .create();
++        dialog.setOnShowListener(x -> {
++            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.parseColor("#B3261E"));
++            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
++                String value=confirm.getText().toString().trim();
++                if(!"تهيئة".equals(value)){
++                    confirm.setError("اكتب كلمة تهيئة كما هي");
++                    return;
++                }
++                dialog.dismiss();
++                resetApplication();
++            });
++        });
++        dialog.show();
++    }
++
++    private void resetApplication() {
++        try {
++            db.resetAllData();
++            logoUri=null;
++            Toast.makeText(this,"تمت تهيئة التطبيق بالكامل",Toast.LENGTH_LONG).show();
++            Intent i=new Intent(this,MainActivity.class);
++            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK);
++            startActivity(i);
++            finish();
++        } catch(Exception e) {
++            Toast.makeText(this,"تعذر تهيئة التطبيق: "+e.getMessage(),Toast.LENGTH_LONG).show();
++        }
++    }
++
+     private void pickLogo() { Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT); i.addCategory(Intent.CATEGORY_OPENABLE); i.setType("image/*"); startActivityForResult(i,REQ_LOGO); }
+ 
+     private void refreshStatuses() {
+diff -ruN a/app/src/main/java/com/aborayan/studenttracker/StudentAdapter.java b/app/src/main/java/com/aborayan/studenttracker/StudentAdapter.java
+--- a/app/src/main/java/com/aborayan/studenttracker/StudentAdapter.java	2026-08-19 20:08:51.000000000 +0000
++++ b/app/src/main/java/com/aborayan/studenttracker/StudentAdapter.java	2026-08-20 02:24:13.791760346 +0000
+@@ -105,9 +105,9 @@
+ 
+         LinearLayout card = UiUtils.vertical(context);
+         card.setPadding(UiUtils.dp(context, 15), UiUtils.dp(context, 14), UiUtils.dp(context, 15), UiUtils.dp(context, 18));
+-        GradientDrawable bg = UiUtils.roundedStroke("#FFFFFF", "#DDE6E2", 21, 1, context);
++        GradientDrawable bg = UiUtils.roundedStroke("#FFFFFF", "#C6A34A", 21, 2, context);
+         card.setBackground(bg);
+-        card.setElevation(UiUtils.dp(context, 1));
++        card.setElevation(UiUtils.dp(context, 2));
+         outer.addView(card);
+ 
+         // رأس البطاقة: الرقم التسلسلي + الاسم + الصف فقط.

@@ -1,0 +1,224 @@
+--- base/StudentTrackerJava-v2.1.0/app/src/main/java/com/aborayan/studenttracker/StudentDetailActivity.java	2026-08-19 21:24:35.000000000 +0000
++++ src/StudentTrackerJava-v2.1.0/app/src/main/java/com/aborayan/studenttracker/StudentDetailActivity.java	2026-08-20 00:37:24.153185766 +0000
+@@ -14,14 +14,18 @@
+ import android.view.Gravity;
+ import android.view.View;
+ import android.view.ViewGroup;
++import android.widget.AdapterView;
++import android.widget.ArrayAdapter;
+ import android.widget.CheckBox;
+ import android.widget.EditText;
+ import android.widget.HorizontalScrollView;
+ import android.widget.LinearLayout;
+ import android.widget.ScrollView;
++import android.widget.Spinner;
+ import android.widget.TextView;
+ import android.widget.Toast;
+ 
++import java.util.ArrayList;
+ import java.util.List;
+ import java.util.Map;
+ 
+@@ -401,6 +405,9 @@
+         TextView edit = UiUtils.pill(this, "تعديل البيانات", "#EAF3F0", Color.parseColor("#185A4B"));
+         edit.setOnClickListener(v -> showEdit(s));
+         row.addView(edit);
++        TextView move = UiUtils.pill(this, "نقل الطالب", "#FFF6E5", Color.parseColor("#9A6700"));
++        move.setOnClickListener(v -> showMoveStudent(s));
++        row.addView(move);
+         TextView del = UiUtils.pill(this, "حذف الطالب", "#FDECEC", Color.parseColor("#B3261E"));
+         del.setOnClickListener(v -> confirmDelete(s));
+         row.addView(del);
+@@ -592,6 +599,151 @@
+         return b.toString();
+     }
+ 
++    private void showMoveStudent(Student s) {
++        LinearLayout f = UiUtils.vertical(this);
++        int p = UiUtils.dp(this, 18);
++        f.setPadding(p, 0, p, 0);
++
++        TextView current = UiUtils.text(this, "الموقع الحالي: " + s.classLabel(), 13, Color.parseColor("#66736F"), false);
++        current.setGravity(Gravity.CENTER);
++        current.setPadding(0, 0, 0, UiUtils.dp(this, 8));
++        f.addView(current);
++
++        ArrayList<String> grades = new ArrayList<>(db.getConfiguredGrades());
++        if (grades.isEmpty()) {
++            grades.addAll(db.getGrades());
++            grades.remove("كل الصفوف");
++        }
++        if (!blank(s.grade) && !grades.contains(s.grade)) grades.add(0, s.grade);
++        if (grades.isEmpty()) {
++            Toast.makeText(this, "أضف الصفوف أولًا من الإعدادات", Toast.LENGTH_LONG).show();
++            return;
++        }
++
++        TextView gradeLabel = UiUtils.text(this, "الصف الجديد", 14, Color.parseColor("#17211E"), true);
++        gradeLabel.setPadding(0, UiUtils.dp(this, 4), 0, UiUtils.dp(this, 5));
++        f.addView(gradeLabel);
++        Spinner gradeSpinner = moveSpinner(grades);
++        int currentGradeIndex = grades.indexOf(s.grade);
++        if (currentGradeIndex >= 0) gradeSpinner.setSelection(currentGradeIndex);
++        f.addView(gradeSpinner, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, UiUtils.dp(this, 52)));
++
++        TextView sectionLabel = UiUtils.text(this, "الشعبة الجديدة", 14, Color.parseColor("#17211E"), true);
++        sectionLabel.setPadding(0, UiUtils.dp(this, 10), 0, UiUtils.dp(this, 5));
++        f.addView(sectionLabel);
++        Spinner sectionSpinner = new Spinner(this);
++        sectionSpinner.setBackground(UiUtils.roundedStroke("#FFFFFF", "#DDE6E2", 12, 1, this));
++        f.addView(sectionSpinner, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, UiUtils.dp(this, 52)));
++
++        EditText customSection = field("اكتب اسم الشعبة الجديدة", "");
++        customSection.setVisibility(View.GONE);
++        f.addView(customSection);
++
++        final ArrayList<String> sectionChoices = new ArrayList<>();
++        Runnable reloadSections = () -> {
++            String grade = gradeSpinner.getSelectedItem() == null ? "" : gradeSpinner.getSelectedItem().toString();
++            sectionChoices.clear();
++            sectionChoices.add("بدون شعبة");
++            for (String sec : db.getSectionsForGrade(grade)) {
++                if (!blank(sec) && !"كل الشعب".equals(sec) && !sectionChoices.contains(sec)) sectionChoices.add(sec);
++            }
++            if (grade.equals(s.grade) && !blank(s.section) && !sectionChoices.contains(s.section)) sectionChoices.add(s.section);
++            sectionChoices.add("شعبة جديدة...");
++            ArrayAdapter<String> a = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item, sectionChoices) {
++                @Override public View getView(int position, View convertView, ViewGroup parent) {
++                    TextView t = (TextView) super.getView(position, convertView, parent);
++                    t.setGravity(Gravity.CENTER);
++                    return t;
++                }
++                @Override public View getDropDownView(int position, View convertView, ViewGroup parent) {
++                    TextView t = (TextView) super.getDropDownView(position, convertView, parent);
++                    t.setGravity(Gravity.CENTER);
++                    return t;
++                }
++            };
++            sectionSpinner.setAdapter(a);
++            if (grade.equals(s.grade) && !blank(s.section)) {
++                int idx = sectionChoices.indexOf(s.section);
++                if (idx >= 0) sectionSpinner.setSelection(idx);
++            } else if (sectionChoices.size() > 2) {
++                sectionSpinner.setSelection(1);
++            }
++        };
++        gradeSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
++            @Override public void onItemSelected(AdapterView<?> parent, View view, int position, long id) { reloadSections.run(); }
++            @Override public void onNothingSelected(AdapterView<?> parent) { }
++        });
++        sectionSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
++            @Override public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
++                String choice = sectionSpinner.getSelectedItem() == null ? "" : sectionSpinner.getSelectedItem().toString();
++                customSection.setVisibility("شعبة جديدة...".equals(choice) ? View.VISIBLE : View.GONE);
++            }
++            @Override public void onNothingSelected(AdapterView<?> parent) { }
++        });
++        reloadSections.run();
++
++        AlertDialog d = new AlertDialog.Builder(this)
++                .setTitle("نقل الطالب إلى صف آخر")
++                .setView(f)
++                .setPositiveButton("نقل الطالب", null)
++                .setNegativeButton("إلغاء", null)
++                .create();
++        d.setOnShowListener(x -> d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
++            String newGrade = gradeSpinner.getSelectedItem() == null ? "" : gradeSpinner.getSelectedItem().toString().trim();
++            String choice = sectionSpinner.getSelectedItem() == null ? "بدون شعبة" : sectionSpinner.getSelectedItem().toString();
++            String newSection;
++            if ("شعبة جديدة...".equals(choice)) {
++                newSection = customSection.getText().toString().trim();
++                if (blank(newSection)) { customSection.setError("اكتب اسم الشعبة"); return; }
++            } else if ("بدون شعبة".equals(choice)) {
++                newSection = "";
++            } else {
++                newSection = choice.trim();
++            }
++            if (blank(newGrade)) { Toast.makeText(this, "اختر الصف الجديد", Toast.LENGTH_SHORT).show(); return; }
++            if (newGrade.equals(s.grade == null ? "" : s.grade.trim()) && newSection.equals(s.section == null ? "" : s.section.trim())) {
++                Toast.makeText(this, "الطالب موجود بالفعل في هذا الصف / الشعبة", Toast.LENGTH_SHORT).show();
++                return;
++            }
++            String destination = newGrade + (blank(newSection) ? "" : " • الشعبة " + newSection);
++            new AlertDialog.Builder(this)
++                    .setTitle("تأكيد نقل الطالب")
++                    .setMessage("سيتم نقل " + s.name + " من " + s.classLabel() + " إلى " + destination + ".\n\nستبقى جميع سجلات المتابعة والتقييم والسلوك والتواصل محفوظة.")
++                    .setPositiveButton("تأكيد النقل", (confirmDialog, which) -> {
++                        int moved = db.moveStudent(s.id, newGrade, newSection);
++                        if (moved > 0) {
++                            d.dismiss();
++                            Toast.makeText(this, "تم نقل الطالب بنجاح", Toast.LENGTH_SHORT).show();
++                            refresh();
++                        } else {
++                            Toast.makeText(this, "تعذر نقل الطالب", Toast.LENGTH_LONG).show();
++                        }
++                    })
++                    .setNegativeButton("رجوع", null)
++                    .show();
++        }));
++        d.show();
++    }
++
++    private Spinner moveSpinner(List<String> values) {
++        Spinner s = new Spinner(this);
++        ArrayAdapter<String> a = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item, values) {
++            @Override public View getView(int position, View convertView, ViewGroup parent) {
++                TextView t = (TextView) super.getView(position, convertView, parent);
++                t.setGravity(Gravity.CENTER);
++                return t;
++            }
++            @Override public View getDropDownView(int position, View convertView, ViewGroup parent) {
++                TextView t = (TextView) super.getDropDownView(position, convertView, parent);
++                t.setGravity(Gravity.CENTER);
++                return t;
++            }
++        };
++        s.setAdapter(a);
++        s.setBackground(UiUtils.roundedStroke("#FFFFFF", "#DDE6E2", 12, 1, this));
++        return s;
++    }
++
+     private void showEdit(Student s) {
+         LinearLayout f = UiUtils.vertical(this);
+         int p = UiUtils.dp(this,18);
+--- base/StudentTrackerJava-v2.1.0/app/src/main/java/com/aborayan/studenttracker/DatabaseHelper.java	2026-08-19 21:31:36.000000000 +0000
++++ src/StudentTrackerJava-v2.1.0/app/src/main/java/com/aborayan/studenttracker/DatabaseHelper.java	2026-08-20 00:37:24.155172231 +0000
+@@ -289,6 +289,25 @@
+         }
+     }
+ 
++    public int moveStudent(long studentId, String newGrade, String newSection) {
++        SQLiteDatabase db = getWritableDatabase();
++        db.beginTransaction();
++        try {
++            String grade = safe(newGrade).trim();
++            String section = safe(newSection).trim();
++            ContentValues v = new ContentValues();
++            v.put("grade", nullIfBlank(grade));
++            v.put("section", nullIfBlank(section));
++            v.put("display_order", nextStudentOrder(db, grade, section));
++            int updated = db.update("students", v, "_id=? AND active=1", new String[]{String.valueOf(studentId)});
++            if (updated > 0) renumberStudents(db);
++            db.setTransactionSuccessful();
++            return updated;
++        } finally {
++            db.endTransaction();
++        }
++    }
++
+     public int deleteStudent(long id) {
+         SQLiteDatabase db = getWritableDatabase();
+         db.beginTransaction();
+--- base/StudentTrackerJava-v2.1.0/app/build.gradle	2026-08-19 21:24:50.000000000 +0000
++++ src/StudentTrackerJava-v2.1.0/app/build.gradle	2026-08-20 00:37:24.155466066 +0000
+@@ -10,8 +10,8 @@
+         applicationId 'com.aborayan.studenttracker'
+         minSdk 24
+         targetSdk 34
+-        versionCode 14
+-        versionName '2.1.0'
++        versionCode 15
++        versionName '2.2.0'
+     }
+ 
+     buildTypes {
