@@ -1,0 +1,109 @@
+name: Build StudentTracker v2.3.0
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  BUILD_TOOLS_VERSION: '35.0.0'
+  SOURCE_B64_SHA256: '5793b818c26833043fd80cee943aea2dc0f63a1f66074cf2b5a4902e42cfb498'
+
+jobs:
+  build:
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'studenttracker-v210-temp-build'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout source branch
+        uses: actions/checkout@v4
+        with:
+          ref: studenttracker-v210-temp-build
+          fetch-depth: 1
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;$BUILD_TOOLS_VERSION" "platform-tools"
+
+      - name: Restore verified v2.2.0 source and apply v2.3.0 patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work/project dist/tools
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('studenttracker-v220-source/part-008.b64')
+          s = p.read_text(encoding='utf-8')
+          old = 'BmXvutiXevVV7xJ7IlRfI4xbh8PkUdotBVBq+MMhMGG1wpSAsC'
+          new = 'BmXvktiXevVV7xJ7IlRfI4xbh8PkUdotBVBq+MMhMGG1wpSAsC'
+          if old not in s:
+              raise SystemExit('Expected repair marker not found in part-008')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          PY
+          cat studenttracker-v220-source/part-*.b64 > work/source.b64
+          test "$(wc -c < work/source.b64)" -eq 126388
+          echo "$SOURCE_B64_SHA256  work/source.b64" | sha256sum -c -
+          base64 --decode work/source.b64 > work/source.zip
+          unzip -tq work/source.zip
+          unzip -q work/source.zip -d work/project
+          ROOT="work/project/StudentTrackerJava-v2.1.0"
+          test -f "$ROOT/app/build.gradle"
+          grep -q "versionName '2.2.0'" "$ROOT/app/build.gradle"
+          (cd "$ROOT" && patch -p1 < ../../../studenttracker-v230.patch)
+          grep -q "versionName '2.3.0'" "$ROOT/app/build.gradle"
+          grep -q "versionCode 16" "$ROOT/app/build.gradle"
+          grep -q "resetAllData" "$ROOT/app/src/main/java/com/aborayan/studenttracker/DatabaseHelper.java"
+          grep -q "منطقة الخطر" "$ROOT/app/src/main/java/com/aborayan/studenttracker/SettingsActivity.java"
+          grep -q "#C6A34A" "$ROOT/app/src/main/java/com/aborayan/studenttracker/StudentAdapter.java"
+
+      - name: Build release APK
+        shell: bash
+        working-directory: work/project/StudentTrackerJava-v2.1.0
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace :app:assembleRelease
+          test -s app/build/outputs/apk/release/app-release-unsigned.apk
+          unzip -tq app/build/outputs/apk/release/app-release-unsigned.apk
+
+      - name: Align APK and export signing tool
+        shell: bash
+        run: |
+          set -euo pipefail
+          BT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}/build-tools/$BUILD_TOOLS_VERSION"
+          UNSIGNED="work/project/StudentTrackerJava-v2.1.0/app/build/outputs/apk/release/app-release-unsigned.apk"
+          "$BT/zipalign" -p -f 4 "$UNSIGNED" dist/StudentTracker-v2.3.0-aligned-unsigned.apk
+          test -s "$BT/lib/apksigner.jar"
+          cp "$BT/lib/apksigner.jar" dist/tools/apksigner.jar
+          unzip -tq dist/StudentTracker-v2.3.0-aligned-unsigned.apk
+          sha256sum dist/StudentTracker-v2.3.0-aligned-unsigned.apk > dist/UNSIGNED_SHA256.txt
+
+      - name: Upload build inputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: StudentTracker-v2.3.0-build
+          path: |
+            dist/StudentTracker-v2.3.0-aligned-unsigned.apk
+            dist/tools/apksigner.jar
+            dist/UNSIGNED_SHA256.txt
+          if-no-files-found: error
+          retention-days: 7
