@@ -53,22 +53,46 @@ jobs:
           grep -R "versionName '2.2.0'" -n work/project/StudentTrackerJava-v2.1.0/app/build.gradle
           grep -R "نقل الطالب" -n work/project/StudentTrackerJava-v2.1.0/app/src/main/java/com/aborayan/studenttracker/StudentDetailActivity.java
 
-      - name: Build release APK
+      - name: Build release APK and capture compiler log
+        id: compile
         shell: bash
         run: |
-          set -euo pipefail
+          set +e
           cd work/project/StudentTrackerJava-v2.1.0
-          gradle --no-daemon --stacktrace assembleRelease
+          gradle --no-daemon --stacktrace assembleRelease 2>&1 | tee ../../../build.log
+          STATUS=${PIPESTATUS[0]}
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
           mkdir -p ../../../dist
-          if [ -s app/build/outputs/apk/release/app-release-unsigned.apk ]; then
-            cp app/build/outputs/apk/release/app-release-unsigned.apk ../../../dist/StudentTracker-v2.2.0-unsigned.apk
+          if [ "$STATUS" -eq 0 ]; then
+            if [ -s app/build/outputs/apk/release/app-release-unsigned.apk ]; then
+              cp app/build/outputs/apk/release/app-release-unsigned.apk ../../../dist/StudentTracker-v2.2.0-unsigned.apk
+            else
+              cp app/build/outputs/apk/release/app-release.apk ../../../dist/StudentTracker-v2.2.0-unsigned.apk
+            fi
+            unzip -tq ../../../dist/StudentTracker-v2.2.0-unsigned.apk
           else
-            cp app/build/outputs/apk/release/app-release.apk ../../../dist/StudentTracker-v2.2.0-unsigned.apk
+            grep -n -B 3 -A 8 "error:" ../../../build.log > ../../../compile-errors.txt || tail -300 ../../../build.log > ../../../compile-errors.txt
           fi
-          test -s ../../../dist/StudentTracker-v2.2.0-unsigned.apk
-          unzip -tq ../../../dist/StudentTracker-v2.2.0-unsigned.apk
+          exit 0
+
+      - name: Upload compile diagnostics
+        if: steps.compile.outputs.status != '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: StudentTracker-v2.2.0-compile-errors
+          path: |
+            build.log
+            compile-errors.txt
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Fail if compilation failed
+        if: steps.compile.outputs.status != '0'
+        shell: bash
+        run: exit 1
 
       - name: Upload unsigned APK
+        if: steps.compile.outputs.status == '0'
         uses: actions/upload-artifact@v4
         with:
           name: StudentTracker-v2.2.0-unsigned
