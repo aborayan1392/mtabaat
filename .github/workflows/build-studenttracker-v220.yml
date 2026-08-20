@@ -49,8 +49,66 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p work/project dist
-          cat studenttracker-v210-source/part-*.b64 > work/base-v210.b64
-          base64 --decode work/base-v210.b64 > work/base-v210.zip
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64, re, zipfile, io, sys
+
+          parts = sorted(Path('studenttracker-v210-source').glob('part-*.b64'))
+          if not parts:
+              raise SystemExit('No v2.1 source chunks found')
+
+          texts = []
+          for p in parts:
+              raw = p.read_text(encoding='utf-8', errors='strict')
+              clean = re.sub(r'\s+', '', raw)
+              texts.append(clean)
+              print(f'{p.name}: chars={len(clean)} equals={clean.count("=")} start={clean[:12]} end={clean[-12:]}')
+
+          def decode_text(s):
+              s = re.sub(r'\s+', '', s)
+              return base64.b64decode(s, validate=False)
+
+          candidates = []
+          joined = ''.join(texts)
+          candidates.append(('joined', lambda: decode_text(joined)))
+
+          # Some historical chunks were stored with their own padding. Remove internal
+          # padding and restore legal padding only once at the end.
+          noeq = ''.join(t.replace('=', '') for t in texts)
+          noeq += '=' * ((4 - len(noeq) % 4) % 4)
+          candidates.append(('joined-no-internal-padding', lambda: decode_text(noeq)))
+
+          # Also test decoding each chunk independently, repairing padding as needed.
+          def per_part():
+              out = bytearray()
+              for t in texts:
+                  q = t.replace('=', '')
+                  q += '=' * ((4 - len(q) % 4) % 4)
+                  out.extend(decode_text(q))
+              return bytes(out)
+          candidates.append(('per-part', per_part))
+
+          errors = []
+          for name, fn in candidates:
+              try:
+                  data = fn()
+                  bio = io.BytesIO(data)
+                  with zipfile.ZipFile(bio) as z:
+                      bad = z.testzip()
+                      if bad is not None:
+                          raise RuntimeError(f'CRC failure: {bad}')
+                      names = set(z.namelist())
+                      if 'app/build.gradle' not in names:
+                          raise RuntimeError('app/build.gradle missing')
+                  Path('work/base-v210.zip').write_bytes(data)
+                  print(f'RECOVERY_OK={name} bytes={len(data)}')
+                  break
+              except Exception as e:
+                  errors.append(f'{name}: {e}')
+          else:
+              print('\n'.join(errors), file=sys.stderr)
+              raise SystemExit('Could not recover v2.1 source ZIP')
+          PY
           unzip -tq work/base-v210.zip
           unzip -q work/base-v210.zip -d work/project
           test -f work/project/app/build.gradle
