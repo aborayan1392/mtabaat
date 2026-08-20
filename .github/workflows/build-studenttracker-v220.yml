@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  BUILD_TOOLS_VERSION: '35.0.0'
+
 jobs:
   build:
     if: github.event_name == 'workflow_dispatch' || github.head_ref == 'studenttracker-v210-temp-build'
@@ -39,66 +42,57 @@ jobs:
         run: |
           set -euo pipefail
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+          sdkmanager "platforms;android-35" "build-tools;$BUILD_TOOLS_VERSION" "platform-tools"
 
-      - name: Reconstruct v2.2.0 source
+      - name: Restore clean v2.1.0 source and apply v2.2.0 patch
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p work/project
-          : > work/source.zip
-          for part in $(find studenttracker-v220-source -maxdepth 1 -type f -name 'part-*.b64' | sort); do
-            echo "Decoding $part"
-            base64 --decode "$part" >> work/source.zip
-          done
-          unzip -tq work/source.zip
-          unzip -q work/source.zip -d work/project
-          grep -R "versionName '2.2.0'" -n work/project/StudentTrackerJava-v2.1.0/app/build.gradle
-          grep -R "نقل الطالب" -n work/project/StudentTrackerJava-v2.1.0/app/src/main/java/com/aborayan/studenttracker/StudentDetailActivity.java
+          mkdir -p work/project dist
+          cat studenttracker-v210-source/part-*.b64 > work/base-v210.b64
+          base64 --decode work/base-v210.b64 > work/base-v210.zip
+          unzip -tq work/base-v210.zip
+          unzip -q work/base-v210.zip -d work/project
+          test -f work/project/app/build.gradle
+          grep -q "versionName '2.1.0'" work/project/app/build.gradle
+          cd work/project
+          patch -p2 < ../../studenttracker-v210-source/studenttracker-v220.patch
+          grep -q "versionName '2.2.0'" app/build.gradle
+          grep -q "نقل الطالب" app/src/main/java/com/aborayan/studenttracker/StudentDetailActivity.java
+          grep -q "moveStudent(long studentId" app/src/main/java/com/aborayan/studenttracker/DatabaseHelper.java
 
-      - name: Build release APK and capture compiler log
-        id: compile
+      - name: Build release APK
+        shell: bash
+        working-directory: work/project
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace :app:assembleRelease
+          test -s app/build/outputs/apk/release/app-release-unsigned.apk
+          unzip -tq app/build/outputs/apk/release/app-release-unsigned.apk
+
+      - name: Generate release signing key
         shell: bash
         run: |
-          set +e
-          cd work/project/StudentTrackerJava-v2.1.0
-          gradle --no-daemon --stacktrace assembleRelease 2>&1 | tee ../../../build.log
-          STATUS=${PIPESTATUS[0]}
-          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
-          mkdir -p ../../../dist
-          if [ "$STATUS" -eq 0 ]; then
-            if [ -s app/build/outputs/apk/release/app-release-unsigned.apk ]; then
-              cp app/build/outputs/apk/release/app-release-unsigned.apk ../../../dist/StudentTracker-v2.2.0-unsigned.apk
-            else
-              cp app/build/outputs/apk/release/app-release.apk ../../../dist/StudentTracker-v2.2.0-unsigned.apk
-            fi
-            unzip -tq ../../../dist/StudentTracker-v2.2.0-unsigned.apk
-          else
-            grep -n -B 3 -A 8 "error:" ../../../build.log > ../../../compile-errors.txt || tail -300 ../../../build.log > ../../../compile-errors.txt
-          fi
-          exit 0
+          set -euo pipefail
+          keytool -genkeypair -v -keystore work/studenttracker-v220.p12 -storetype PKCS12 -storepass android -keypass android -alias studenttracker -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=StudentTracker v2.2.0,O=Aborayan App,C=SA"
 
-      - name: Upload compile diagnostics
-        if: steps.compile.outputs.status != '0'
-        uses: actions/upload-artifact@v4
-        with:
-          name: StudentTracker-v2.2.0-compile-errors
-          path: |
-            build.log
-            compile-errors.txt
-          if-no-files-found: error
-          retention-days: 3
-
-      - name: Fail if compilation failed
-        if: steps.compile.outputs.status != '0'
+      - name: Sign and verify APK
         shell: bash
-        run: exit 1
+        run: |
+          set -euo pipefail
+          BT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}/build-tools/$BUILD_TOOLS_VERSION"
+          "$BT/zipalign" -p -f 4 work/project/app/build/outputs/apk/release/app-release-unsigned.apk work/aligned.apk
+          "$BT/apksigner" sign --ks work/studenttracker-v220.p12 --ks-type PKCS12 --ks-key-alias studenttracker --ks-pass pass:android --key-pass pass:android --out dist/StudentTracker-v2.2.0.apk work/aligned.apk
+          "$BT/apksigner" verify --verbose --print-certs dist/StudentTracker-v2.2.0.apk
+          unzip -tq dist/StudentTracker-v2.2.0.apk
+          sha256sum dist/StudentTracker-v2.2.0.apk > dist/SHA256SUMS.txt
 
-      - name: Upload unsigned APK
-        if: steps.compile.outputs.status == '0'
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: StudentTracker-v2.2.0-unsigned
-          path: dist/StudentTracker-v2.2.0-unsigned.apk
+          name: StudentTracker-v2.2.0
+          path: |
+            dist/StudentTracker-v2.2.0.apk
+            dist/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 7
