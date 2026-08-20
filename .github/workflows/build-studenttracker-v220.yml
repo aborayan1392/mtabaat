@@ -47,8 +47,16 @@ jobs:
           set -euo pipefail
           mkdir -p work/project
           cat studenttracker-v210-source/part-*.b64 > work/source.raw.b64
-          tr -cd 'A-Za-z0-9+/=\n' < work/source.raw.b64 > work/source.b64
-          base64 --decode work/source.b64 > work/source.zip
+          python3 - <<'PY'
+          import base64, re
+          from pathlib import Path
+          raw = Path('work/source.raw.b64').read_text(encoding='utf-8', errors='ignore')
+          clean = re.sub(r'[^A-Za-z0-9+/]', '', raw)
+          clean += '=' * ((-len(clean)) % 4)
+          data = base64.b64decode(clean, validate=False)
+          Path('work/source.zip').write_bytes(data)
+          print('clean base64 chars:', len(clean), 'decoded bytes:', len(data))
+          PY
           unzip -tq work/source.zip
           unzip -q work/source.zip -d work/project
           cd work/project
