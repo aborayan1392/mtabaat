@@ -10,6 +10,7 @@ permissions:
 
 env:
   BUILD_TOOLS_VERSION: '35.0.0'
+  SOURCE_B64_SHA256: '5793b818c26833043fd80cee943aea2dc0f63a1f66074cf2b5a4902e42cfb498'
 
 jobs:
   build:
@@ -44,84 +45,46 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;$BUILD_TOOLS_VERSION" "platform-tools"
 
-      - name: Restore clean v2.1.0 source and apply v2.2.0 patch
+      - name: Restore and verify v2.2.0 source
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p work/project dist
+
+          # Repair the single corrupted Base64 character in the historical source chunk.
+          # The complete bundle hash below proves the reconstructed source is byte-for-byte
+          # identical to the validated local v2.2.0 source before it is decoded or built.
           python3 - <<'PY'
           from pathlib import Path
-          import base64, re, zipfile, io, sys
-
-          parts = sorted(Path('studenttracker-v210-source').glob('part-*.b64'))
-          if not parts:
-              raise SystemExit('No v2.1 source chunks found')
-
-          texts = []
-          for p in parts:
-              raw = p.read_text(encoding='utf-8', errors='strict')
-              clean = re.sub(r'\s+', '', raw)
-              texts.append(clean)
-              print(f'{p.name}: chars={len(clean)} equals={clean.count("=")} start={clean[:12]} end={clean[-12:]}')
-
-          def decode_text(s):
-              s = re.sub(r'\s+', '', s)
-              return base64.b64decode(s, validate=False)
-
-          candidates = []
-          joined = ''.join(texts)
-          candidates.append(('joined', lambda: decode_text(joined)))
-
-          # Some historical chunks were stored with their own padding. Remove internal
-          # padding and restore legal padding only once at the end.
-          noeq = ''.join(t.replace('=', '') for t in texts)
-          noeq += '=' * ((4 - len(noeq) % 4) % 4)
-          candidates.append(('joined-no-internal-padding', lambda: decode_text(noeq)))
-
-          # Also test decoding each chunk independently, repairing padding as needed.
-          def per_part():
-              out = bytearray()
-              for t in texts:
-                  q = t.replace('=', '')
-                  q += '=' * ((4 - len(q) % 4) % 4)
-                  out.extend(decode_text(q))
-              return bytes(out)
-          candidates.append(('per-part', per_part))
-
-          errors = []
-          for name, fn in candidates:
-              try:
-                  data = fn()
-                  bio = io.BytesIO(data)
-                  with zipfile.ZipFile(bio) as z:
-                      bad = z.testzip()
-                      if bad is not None:
-                          raise RuntimeError(f'CRC failure: {bad}')
-                      names = set(z.namelist())
-                      if 'app/build.gradle' not in names:
-                          raise RuntimeError('app/build.gradle missing')
-                  Path('work/base-v210.zip').write_bytes(data)
-                  print(f'RECOVERY_OK={name} bytes={len(data)}')
-                  break
-              except Exception as e:
-                  errors.append(f'{name}: {e}')
-          else:
-              print('\n'.join(errors), file=sys.stderr)
-              raise SystemExit('Could not recover v2.1 source ZIP')
+          p = Path('studenttracker-v220-source/part-008.b64')
+          s = p.read_text(encoding='utf-8')
+          old = 'BmXvutiXevVV7xJ7IlRfI4xbh8PkUdotBVBq+MMhMGG1wpSAsC'
+          new = 'BmXvktiXevVV7xJ7IlRfI4xbh8PkUdotBVBq+MMhMGG1wpSAsC'
+          if old not in s:
+              raise SystemExit('Expected repair marker not found in part-008')
+          s2 = s.replace(old, new, 1)
+          if s2.count(old):
+              raise SystemExit('Unexpected duplicate repair marker remains')
+          p.write_text(s2, encoding='utf-8')
           PY
-          unzip -tq work/base-v210.zip
-          unzip -q work/base-v210.zip -d work/project
-          test -f work/project/app/build.gradle
-          grep -q "versionName '2.1.0'" work/project/app/build.gradle
-          cd work/project
-          patch -p2 < ../../studenttracker-v210-source/studenttracker-v220.patch
-          grep -q "versionName '2.2.0'" app/build.gradle
-          grep -q "نقل الطالب" app/src/main/java/com/aborayan/studenttracker/StudentDetailActivity.java
-          grep -q "moveStudent(long studentId" app/src/main/java/com/aborayan/studenttracker/DatabaseHelper.java
+
+          cat studenttracker-v220-source/part-*.b64 > work/source.b64
+          test "$(wc -c < work/source.b64)" -eq 126388
+          echo "$SOURCE_B64_SHA256  work/source.b64" | sha256sum -c -
+          base64 --decode work/source.b64 > work/source.zip
+          unzip -tq work/source.zip
+          unzip -q work/source.zip -d work/project
+
+          ROOT="work/project/StudentTrackerJava-v2.1.0"
+          test -f "$ROOT/app/build.gradle"
+          grep -q "versionName '2.2.0'" "$ROOT/app/build.gradle"
+          grep -q "versionCode 15" "$ROOT/app/build.gradle"
+          grep -q "نقل الطالب" "$ROOT/app/src/main/java/com/aborayan/studenttracker/StudentDetailActivity.java"
+          grep -q "moveStudent(long studentId" "$ROOT/app/src/main/java/com/aborayan/studenttracker/DatabaseHelper.java"
 
       - name: Build release APK
         shell: bash
-        working-directory: work/project
+        working-directory: work/project/StudentTrackerJava-v2.1.0
         run: |
           set -euo pipefail
           gradle --no-daemon --stacktrace :app:assembleRelease
@@ -139,7 +102,8 @@ jobs:
         run: |
           set -euo pipefail
           BT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}/build-tools/$BUILD_TOOLS_VERSION"
-          "$BT/zipalign" -p -f 4 work/project/app/build/outputs/apk/release/app-release-unsigned.apk work/aligned.apk
+          UNSIGNED="work/project/StudentTrackerJava-v2.1.0/app/build/outputs/apk/release/app-release-unsigned.apk"
+          "$BT/zipalign" -p -f 4 "$UNSIGNED" work/aligned.apk
           "$BT/apksigner" sign --ks work/studenttracker-v220.p12 --ks-type PKCS12 --ks-key-alias studenttracker --ks-pass pass:android --key-pass pass:android --out dist/StudentTracker-v2.2.0.apk work/aligned.apk
           "$BT/apksigner" verify --verbose --print-certs dist/StudentTracker-v2.2.0.apk
           unzip -tq dist/StudentTracker-v2.2.0.apk
