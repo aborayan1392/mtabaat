@@ -69,7 +69,9 @@ jobs:
           ROOT="work/project/StudentTrackerJava-v2.1.0"
           test -f "$ROOT/app/build.gradle"
           grep -q "versionName '2.2.0'" "$ROOT/app/build.gradle"
-          (cd "$ROOT" && patch -p1 < ../../../studenttracker-v230.patch)
+          (cd "$ROOT" && patch -p1 --batch --forward < ../../../studenttracker-v230.patch) || true
+
+          # These checks are mandatory: the build must stop unless all app changes were actually applied.
           grep -q "versionName '2.3.0'" "$ROOT/app/build.gradle"
           grep -q "versionCode 16" "$ROOT/app/build.gradle"
           grep -q "resetAllData" "$ROOT/app/src/main/java/com/aborayan/studenttracker/DatabaseHelper.java"
