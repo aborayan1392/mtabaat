@@ -1,1 +1,1 @@
-Trigger StudentTracker v2.2.0 after source sanitization fix.
+Trigger StudentTracker v2.2.0 after normalized base64 padding fix.
